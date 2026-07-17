@@ -18,7 +18,10 @@ and heard/saw the result. **W is required before a row counts as verified.**
 |---|---|---|---|
 | `ff2` | Light mode / power | 1 byte: 01 Rainbow, 02 Breathe, 03 Static, 04 Aurora, 05 Music, **06 = off** (00 rejected) | D+W |
 | `fea` | Brightness | 2 bytes `[pct, pct]` 0–100, written identical; animated modes only (no effect in Static) | D+W+L |
-| `ff3` | Static color | 6 bytes: RGB triplet ×2 (write same triplet twice; first triplet drives both satellites) | D+W |
+| `ff3` | Static **and Breathe** color | 6 bytes: RGB triplet ×2 (write same triplet twice; first triplet drives both satellites). Breathe confirmed cyan after writing `00ffff…` (2026-07-17). Does **not** affect Music React colors. | D+W |
+| `fa4` | Sub gain | 1 byte, dB = raw − 20, range −20..+10 (raw 0..30). NOT the Fives' 2-byte format. Cross-checked: phone app +2 dB ↔ raw 22. | D+W |
+| `f17` | 6-band EQ | 48-byte blob (six 8-byte records, gain = last byte, signed dB −6..+6; layout below). Wrote +6 @ 50 Hz → audibly boomier; user's phone-app settings (−2 @ 3.5k/8k) matched the baseline decode. Full-blob writes only (a 32-byte partial write was silently ignored). | D+W |
+| `f24` | Sound mode | 1 byte: **01 Movie, 02 Music, 03 Virtual Surround** (00 rejected, like ff2). Music=02 cross-checked against phone app; 03 confirmed surround-like by ear; Movie=01 by elimination. | D+W |
 
 ## Session 0 inventory — 2026-07-17 (`probe-dumps/00-baseline.txt`)
 
@@ -65,11 +68,9 @@ full 48-byte blob must be rewritten.
 
 | Feature | Hypothesis / method |
 |---|---|
-| Music React presets 1–4 | **Test in progress**: baseline had `ff3 = ff0000 ff007f` (red→pink/purple) while in Music React — consistent with gradient-endpoints hypothesis. Wrote `00ffff 0040ff` (cyan→blue) on 2026-07-17; awaiting user observation. |
-| Breathe color | W: `ff2=02` then `ff3=ff0000ff0000` — does the breathe color turn red? |
-| Aurora Cool/Warm | D toggle in phone app; if inconclusive, W-probe R/W/N chars in `da6d0fe1` while in Aurora. Note `fef/ff0/ff1` read empty. |
-| EQ gain range | Phone app min/max on one band → D, or W increasing values until rejected. |
-| Screen React / streaming | `da6d0fef/f0/f1`, service `da6d0ff1` (chars f9–ff, all empty) — out of scope. |
+| Music React presets 1–4 | **Gradient-endpoints hypothesis REFUTED** (2026-07-17): wrote cyan→blue into `ff3` while in Music React — LEDs stayed red/purple. (`ff3`'s second triplet role still unknown.) Next: phone-app dump-diff per preset. Candidates to watch: `fef/ff0/ff1` (read empty), `f27`, `f2c`. |
+| Aurora Cool/Warm | D toggle in phone app; if inconclusive, W-probe R/W/N chars in `da6d0fe1` while in Aurora. |
+| Screen React / streaming | Service `da6d0ff1` (chars f9–ff, all empty) — out of scope. |
 
 ## Never write
 

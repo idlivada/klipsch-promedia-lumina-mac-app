@@ -44,6 +44,9 @@ final class AppState {
     @ObservationIgnored private var throttler: Throttler!
     @ObservationIgnored private var recentWrites: [CBUUID: Date] = [:]
     @ObservationIgnored private var editingChars: Set<CBUUID> = []
+    /// Last EQ blob seen from the device — used as the write template so the
+    /// non-gain bytes always round-trip unchanged.
+    @ObservationIgnored private var eqTemplate: Data?
     private let echoWindow: TimeInterval = 1.5
 
     init() {
@@ -139,17 +142,28 @@ final class AppState {
 
     func setSubGain(_ db: Double) {
         subGain = db
-        write(Lumina.channelVolume, Encodings.subGainData(db: Int(db.rounded())), throttled: true)
+        write(Lumina.subGain, Encodings.subGainData(db: Int(db.rounded())), throttled: true)
     }
 
     func setSoundMode(_ m: SoundMode) {
         soundMode = m
-        // TODO(Phase 1): write once the sound-mode characteristic (f06? f12?) is mapped.
+        write(Lumina.soundMode, Data([m.rawValue]))
     }
 
     func setEQBand(_ index: Int, _ db: Double) {
         eqBands[index] = db
-        // TODO(Phase 1): write once the 6-band EQ mapping is discovered.
+        pushEQ()
+    }
+
+    func resetEQ() {
+        eqBands = Array(repeating: 0, count: eqBandLabels.count)
+        pushEQ()
+    }
+
+    private func pushEQ() {
+        let gains = eqBands.map { Int($0.rounded()) }
+        guard let data = Encodings.eqBlobData(gains: gains, template: eqTemplate) else { return }
+        write(Lumina.eqBlob, data, throttled: true)
     }
 
     // MARK: Slider editing (notification suppression while dragging)
@@ -216,9 +230,14 @@ final class AppState {
             muted = first != 0
         case Lumina.nightMode:
             nightMode = first != 0
-        case Lumina.channelVolume:
-            if data.count >= 2, data[0] == Encodings.subChannel {
-                subGain = Double(Encodings.subGainDB(raw: data[1]))
+        case Lumina.subGain:
+            subGain = Double(Encodings.subGainDB(raw: first))
+        case Lumina.soundMode:
+            if let m = SoundMode(rawValue: first) { soundMode = m }
+        case Lumina.eqBlob:
+            eqTemplate = data
+            if let gains = Encodings.eqBlobGains(data) {
+                eqBands = gains.map(Double.init)
             }
         default:
             break

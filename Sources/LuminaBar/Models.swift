@@ -33,11 +33,20 @@ enum LightMode: UInt8, CaseIterable, Codable {
 /// active mode is restored on "on".
 let lightsOffByte: UInt8 = 0x06
 
-/// Raw values unknown until Phase 1 discovery maps the sound-mode characteristic.
-enum SoundMode: String, CaseIterable {
-    case movie = "Movie"
-    case music = "Music"
-    case surround = "Surround"
+/// f24 — verified 2026-07-17: 00 rejected, Music confirmed 02, Surround
+/// confirmed 03 by ear, Movie = 01 by elimination.
+enum SoundMode: UInt8, CaseIterable {
+    case movie = 1
+    case music = 2
+    case surround = 3
+
+    var label: String {
+        switch self {
+        case .movie: "Movie"
+        case .music: "Music"
+        case .surround: "Surround"
+        }
+    }
 }
 
 enum AuroraTone: String, CaseIterable {
@@ -62,22 +71,21 @@ struct MusicPreset: Identifiable {
 /// Which controls render. Flip flags to true as Phase 1 verifies each mapping
 /// (see PROTOCOL.md); unverified features stay hidden rather than silently broken.
 struct ProtocolCapabilities {
-    // Verified on Lumina fw 1.0.1
+    // Verified on Lumina fw 1.0.1 (see PROTOCOL.md)
     var lighting = true
     var staticColorPicker = true
-    // Strong Fives-family candidates — the app itself is the write-and-observe test
+    var breatheColor = true   // Breathe reads its color from ff3, same as Static
+    var subGain = true        // fa4, 1 byte, dB = raw - 20
+    var soundModes = true     // f24: Movie 01 / Music 02 / Surround 03
+    var sixBandEQ = true      // f17 blob, gains signed dB -6..+6
+    // Strong candidates — fa2/fa3/f05 present with plausible values; the app
+    // itself is the final write-and-observe test
     var volume = true
     var mute = true
     var nightMode = true
-    var subGain = true
-    // Unknown until discovery
-    var breatheColor = false
+    // Unknown until phone-app dump-diff sessions
     var auroraTone = false
     var musicPresets = false
-    var soundModes = false
-    var sixBandEQ = false
 }
 
-/// 6-band labels for the Lumina EQ; the characteristic mapping is filled in
-/// after Phase 1 (per-band chars vs one multi-byte blob).
 let eqBandLabels = ["50", "150", "400", "1k", "3.5k", "8k"]

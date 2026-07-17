@@ -21,7 +21,8 @@ struct EQView: View {
                                 get: { state.eqBands[i] },
                                 set: { state.setEQBand(i, $0.rounded()) }
                             ),
-                            range: range
+                            range: range,
+                            onEditingChanged: { state.setEditing(Lumina.eqBlob, $0) }
                         )
                         .frame(width: 24, height: 90)
                         Text(eqBandLabels[i])
@@ -33,7 +34,7 @@ struct EQView: View {
             .frame(maxWidth: .infinity)
 
             Button("Flat") {
-                for i in eqBandLabels.indices { state.setEQBand(i, 0) }
+                state.resetEQ()
             }
             .controlSize(.small)
         }
@@ -48,6 +49,7 @@ struct EQView: View {
 struct VerticalSlider: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
+    var onEditingChanged: (Bool) -> Void = { _ in }
 
     var body: some View {
         GeometryReader { geo in
@@ -72,9 +74,11 @@ struct VerticalSlider: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { g in
+                        onEditingChanged(true)
                         let f = 1 - min(max(g.location.y / h, 0), 1)
                         value = range.lowerBound + f * (range.upperBound - range.lowerBound)
                     }
+                    .onEnded { _ in onEditingChanged(false) }
             )
         }
     }

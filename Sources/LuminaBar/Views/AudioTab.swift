@@ -16,7 +16,7 @@ struct AudioTab: View {
                     get: { state.soundMode },
                     set: { state.setSoundMode($0) }
                 )) {
-                    ForEach(SoundMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    ForEach(SoundMode.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -41,10 +41,6 @@ struct AudioTab: View {
                         .padding(.top, 6)
                 }
                 .font(.subheadline)
-            } else {
-                Text("EQ and sound modes appear after protocol discovery (see PROTOCOL.md).")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
             }
         }
     }
@@ -87,7 +83,7 @@ struct AudioTab: View {
                 value: Binding(get: { state.subGain }, set: { state.setSubGain($0) }),
                 in: Double(Encodings.subGainRangeDB.lowerBound)...Double(Encodings.subGainRangeDB.upperBound),
                 step: 1,
-                onEditingChanged: { state.setEditing(Lumina.channelVolume, $0) }
+                onEditingChanged: { state.setEditing(Lumina.subGain, $0) }
             )
         }
     }
