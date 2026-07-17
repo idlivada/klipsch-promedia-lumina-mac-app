@@ -20,29 +20,56 @@ and heard/saw the result. **W is required before a row counts as verified.**
 | `fea` | Brightness | 2 bytes `[pct, pct]` 0–100, written identical; animated modes only (no effect in Static) | D+W+L |
 | `ff3` | Static color | 6 bytes: RGB triplet ×2 (write same triplet twice; first triplet drives both satellites) | D+W |
 
-## Candidates (Fives/Sevens/Nines family — NOT yet verified on Lumina)
+## Session 0 inventory — 2026-07-17 (`probe-dumps/00-baseline.txt`)
 
-| Char | Name | Family format | Phase 1 method |
+The Lumina does **not** expose the Fives' `f06` (vocal), `f08`, `f12`–`f15`
+chars. Its EQ service instead has: `f02/f03/f04` (all read `06`), `f05` (00),
+`f09` (00), **`f16` (R only, reads `06`)**, **`f17` (48-byte blob)**, `f24`
+(02), `f27` (00), `f2c` (01).
+
+### `f17` — 6-band EQ blob (decoded from baseline, pending W verification)
+
+48 bytes = six 8-byte records `[band, 00, freqLE16, 00, 01, 00, gain]`:
+
+```
+00 00 3200 00 01 00 00   band 0:   50 Hz, gain 0x00
+01 00 9600 00 01 00 00   band 1:  150 Hz, gain 0x00
+02 00 9001 00 01 00 00   band 2:  400 Hz, gain 0x00
+03 00 e803 00 01 00 00   band 3: 1000 Hz, gain 0x00
+04 00 ac0d 00 01 00 fe   band 4: 3500 Hz, gain 0xfe (-2 if signed dB)
+05 00 401f 00 01 00 fe   band 5: 8000 Hz, gain 0xfe (-2 if signed dB)
+```
+
+Frequencies match the Lumina app's bands exactly. `f16` = `06` is presumably
+the band count. Last byte is the gain candidate (signed dB); the `00 01 00`
+run may be enable/Q/filter-type. TODO: confirm gain byte + range by W
+(write +gain at 50 Hz, listen), and whether partial writes are allowed or the
+full 48-byte blob must be rewritten.
+
+## Candidates (updated after Session 0)
+
+| Char | Read | Working hypothesis | Next step |
 |---|---|---|---|
-| `fa2` | Master volume | 1 byte 0..0x24 (36 steps) | **L**: listen while turning pod knob end-to-end; then W |
-| `fa3` | Mute | 1 byte 0/1 | W: write 01/00, listen for silence |
-| `fa4` | Channel/sub volume | 2 bytes `[0x04, raw]`; Fives dB = raw − 21; Lumina UI shows −20..+10 → calibrate offset | **D×3**: phone at −20 / 0 / +10, dump each; then W |
-| `f05` | Night mode | 1 byte 0/1 | D then W (audible dynamics change) |
-| `f06` | Vocal preset | 0..3 — sound-mode candidate | D: cycle Movie/Music/Surround in phone app |
-| `f12` | EQ preset | 0..5 — sound-mode candidate | (same session as f06) |
-| `f02/f03/f04` | Bass/Mid/Treble | byte = dB + 10, dB −10..+6 — only 3 bands; Lumina has 6 | **D×12**: one band at a time, 0→max→0 |
-| `fd2` | Input select | 0..6 | D (nice-to-have) |
+| `fa2` | `18` (24) | Master volume 0..0x24 (24/36 ≈ 67%) | **L**: pod knob sweep; then W |
+| `fa3` | `00` | Mute 0/1 | W |
+| `fa4` | `16` (22) | **1-byte** sub gain (NOT Fives' 2-byte `[04,raw]`): 22−20 = +2 dB if offset 20 | User states phone-app sub value; W both extremes. App's `subGainData` must switch to 1 byte once confirmed |
+| `f05` | `00` | Night mode 0/1 | D or W |
+| `f24` | `02` | **Sound mode** — only 3-valued candidate; Fives preset chars absent | User states current phone-app mode → decodes one value; W the other two |
+| `f27` | `00` | Unknown (dynamic bass? surround sub-toggle?) | observe during D sessions |
+| `f2c` | `01` | Unknown | observe during D sessions |
+| `f02/f03/f04` | `06 06 06` | Legacy bass/mid/treble; all-equal reads suggest flat (byte = dB+6?) — possibly vestigial on Lumina | low priority; 6-band EQ is `f17` |
+| `fd2` | `02` | Input select (02 = Bluetooth on Fives… but likely USB here) | D (nice-to-have) |
+| `fe9` | `8403` | LE 0x0384 = 900 s — auto-standby timer? | ignore |
 
-## Unknown — needs discovery
+## Unknown — still needs discovery
 
 | Feature | Hypothesis / method |
 |---|---|
-| 6-band EQ (50/150/400/1k/3.5k/8k) | Per-band chars (f02.. + new) vs one multi-byte blob. Session 0 inventory narrows it; then per-band dump-diff. |
-| Sound modes Movie/Music/Virtual Surround | f06 or f12; **record whether EQ chars co-change** (answers "presets overwrite EQ"). |
-| Breathe color | **W only, no phone needed**: write `ff2=02` then `ff3=ff0000ff0000` — does the breathe color turn red? |
-| Aurora Cool/Warm | D toggle in phone app; if inconclusive, W-probe R/W/N chars in the `da6d0fe1` service while in Aurora mode. |
-| Music React presets 1–4 | **Test first**: ff3 factory value was two *different* triplets (`ff0000 0000ff`) — plausibly gradient endpoints. In Music mode write `ff3=0000ff800080` (blue→purple) and observe. If LEDs follow, presets are free. Else D per preset. |
-| Screen React / streaming | `da6d0fef/f0/f1`, service `da6d0ff1` (chars f9–ff) — unexplored, out of scope. |
+| Music React presets 1–4 | **Test in progress**: baseline had `ff3 = ff0000 ff007f` (red→pink/purple) while in Music React — consistent with gradient-endpoints hypothesis. Wrote `00ffff 0040ff` (cyan→blue) on 2026-07-17; awaiting user observation. |
+| Breathe color | W: `ff2=02` then `ff3=ff0000ff0000` — does the breathe color turn red? |
+| Aurora Cool/Warm | D toggle in phone app; if inconclusive, W-probe R/W/N chars in `da6d0fe1` while in Aurora. Note `fef/ff0/ff1` read empty. |
+| EQ gain range | Phone app min/max on one band → D, or W increasing values until rejected. |
+| Screen React / streaming | `da6d0fef/f0/f1`, service `da6d0ff1` (chars f9–ff, all empty) — out of scope. |
 
 ## Never write
 
