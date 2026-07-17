@@ -58,10 +58,7 @@ struct LightingTab: View {
             Slider(
                 value: Binding(get: { state.brightness }, set: { state.setBrightness($0) }),
                 in: 0...100,
-                onEditingChanged: { editing in
-                    state.setEditing(Lumina.brightness, editing)
-                    state.setEditing(Lumina.staticColor, editing)
-                }
+                onEditingChanged: { state.setEditing(Lumina.brightness, $0) }
             )
             Image(systemName: "sun.max.fill")
                 .foregroundStyle(.secondary)

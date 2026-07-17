@@ -85,29 +85,12 @@ public enum Encodings {
         return Data([p, p])
     }
 
-    // MARK: Static color (ff3) — VERIFIED: RGB triplet written twice
+    // MARK: Mode color register (ff3) — two RGB triplets, meaning per mode.
+    // Static/Breathe: [color, 000000] (phone-app format; brightness lives in
+    // fea, which works in ALL modes). Music React / Aurora: gradient pair.
+    // Pair writes must ride the same connection as the ff2 mode write.
 
-    public static func colorData(_ c: RGB) -> Data {
-        Data([c.r, c.g, c.b, c.r, c.g, c.b])
-    }
-
-    /// Gradient pair (Music React presets, Aurora tones). Must be written on
-    /// the same connection as the ff2 mode write — mode transitions clear ff3.
     public static func colorPairData(_ a: RGB, _ b: RGB) -> Data {
         Data([a.r, a.g, a.b, b.r, b.g, b.b])
-    }
-
-    /// Brightness has no effect in Static mode (fea is animated-modes-only),
-    /// so static dimming scales the RGB value locally before sending.
-    /// Never produces all-zero output for a non-black color: the device
-    /// flashes bright when ff3 is written as 000000, so channels floor at 1
-    /// (visually off) instead.
-    public static func scaled(_ c: RGB, brightnessPercent: Double) -> RGB {
-        var f = min(max(brightnessPercent, 0), 100) / 100
-        if f == 0 { f = 1.0 / 255 }
-        func s(_ v: UInt8) -> UInt8 {
-            v == 0 ? 0 : UInt8(max(1, (Double(v) * f).rounded()))
-        }
-        return RGB(r: s(c.r), g: s(c.g), b: s(c.b))
     }
 }

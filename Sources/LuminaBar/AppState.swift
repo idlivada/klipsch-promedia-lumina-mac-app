@@ -93,10 +93,8 @@ final class AppState {
 
     private func pushColorPayload(for m: LightMode) {
         switch m {
-        case .staticColor:
+        case .staticColor, .breathe:
             pushStaticColor()
-        case .breathe:
-            write(Lumina.staticColor, Encodings.colorData(staticColor))
         case .music:
             if let p = MusicPreset.all.first(where: { $0.id == musicPresetID }) {
                 write(Lumina.staticColor, Encodings.colorPairData(p.start, p.end))
@@ -111,12 +109,9 @@ final class AppState {
     func setBrightness(_ p: Double) {
         brightness = p
         persist()
-        if mode == .staticColor {
-            // fea has no visible effect in Static — scale the RGB locally instead.
-            pushStaticColor(throttled: true)
-        } else {
-            write(Lumina.brightness, Encodings.brightnessData(percent: p), throttled: true)
-        }
+        // fea controls brightness in ALL modes, Static included (the handoff
+        // doc's claim that it doesn't was disproven by phone-app dump-diffs).
+        write(Lumina.brightness, Encodings.brightnessData(percent: p), throttled: true)
     }
 
     func setStaticColor(_ c: RGB) {
@@ -126,10 +121,12 @@ final class AppState {
     }
 
     private func pushStaticColor(throttled: Bool = false) {
-        let out = mode == .staticColor
-            ? Encodings.scaled(staticColor, brightnessPercent: brightness)
-            : staticColor
-        write(Lumina.staticColor, Encodings.colorData(out), throttled: throttled)
+        // Static/Breathe wire format (per phone-app dump): [color, 000000].
+        write(
+            Lumina.staticColor,
+            Encodings.colorPairData(staticColor, RGB(r: 0, g: 0, b: 0)),
+            throttled: throttled
+        )
     }
 
     func setAuroraTone(_ t: AuroraTone) {
@@ -251,15 +248,12 @@ final class AppState {
             guard data.count >= 6 else { break }
             let a = RGB(r: data[0], g: data[1], b: data[2])
             let b = RGB(r: data[3], g: data[4], b: data[5])
-            if a == b {
-                // Identical triplets = a solid Static/Breathe color. In Static
-                // mode ff3 always holds a brightness-SCALED value (from us or
-                // the phone app alike), never the true color — adopting it
-                // compounds the dimming (echoes arrive after the suppression
-                // window, and the initial connect read has the same problem).
-                // Local state stays authoritative in Static; only Breathe
-                // (unscaled) values are adopted.
-                if mode == .breathe && a != staticColor {
+            let black = RGB(r: 0, g: 0, b: 0)
+            if b == black || a == b {
+                // Solid Static/Breathe color: phone writes [color, 000000],
+                // older writers used [color, color]. ff3 holds the true color
+                // (brightness lives in fea), so two-way sync is safe.
+                if a != black && a != staticColor {
                     staticColor = a
                     persist()
                 }
