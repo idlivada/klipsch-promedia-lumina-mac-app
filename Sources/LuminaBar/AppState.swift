@@ -253,16 +253,13 @@ final class AppState {
             let b = RGB(r: data[3], g: data[4], b: data[5])
             if a == b {
                 // Identical triplets = a solid Static/Breathe color. In Static
-                // we write a brightness-SCALED color, and the device can echo
-                // it back long after the echo-suppression window — adopting it
-                // would compound the dimming on every brightness change. Only
-                // accept values that differ from our own expected output
-                // (i.e. genuine external changes from the phone app).
-                let expected = Encodings.scaled(
-                    staticColor,
-                    brightnessPercent: mode == .staticColor ? brightness : 100
-                )
-                if a != expected && a != staticColor {
+                // mode ff3 always holds a brightness-SCALED value (from us or
+                // the phone app alike), never the true color — adopting it
+                // compounds the dimming (echoes arrive after the suppression
+                // window, and the initial connect read has the same problem).
+                // Local state stays authoritative in Static; only Breathe
+                // (unscaled) values are adopted.
+                if mode == .breathe && a != staticColor {
                     staticColor = a
                     persist()
                 }
