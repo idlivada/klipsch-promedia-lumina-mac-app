@@ -10,6 +10,7 @@ import LuminaProtocol
 //   dump <namePrefix>                 connect + enumerate + read everything
 //   read <namePrefix> <char>          read one characteristic
 //   write <namePrefix> <char> <hex>   write hex bytes (refuses denylisted chars)
+//   seq <namePrefix> <char>=<hex>...  several writes over ONE connection, in order
 //   listen <namePrefix> [secs]        subscribe to all notify chars, log timestamped changes
 //
 // <char> accepts a full UUID or a 3-hex-digit short id like "ff2".
@@ -58,6 +59,8 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     var servicesWithCharsDone = 0
     var writeChar: CBCharacteristic?
     var readTarget: CBCharacteristic?
+    var seqWrites: [(uuid: CBUUID, data: Data)] = []
+    var seqIndex = 0
 
     init(command: String, params: [String]) {
         self.command = command
@@ -137,6 +140,8 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             doWrite(peripheral)
         } else if command == "read", servicesWithCharsDone == discoveredServices {
             doRead(peripheral)
+        } else if command == "seq", servicesWithCharsDone == discoveredServices {
+            startSeq(peripheral)
         } else if command == "listen" {
             for c in service.characteristics ?? [] where c.properties.contains(.notify) || c.properties.contains(.indicate) {
                 peripheral.setNotifyValue(true, for: c)
@@ -197,8 +202,44 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         }
     }
 
+    func startSeq(_ peripheral: CBPeripheral) {
+        for p in params.dropFirst() {
+            let parts = p.split(separator: "=", maxSplits: 1)
+            guard parts.count == 2, let data = Data(hex: String(parts[1])) else {
+                log("bad seq item '\(p)' — expected <char>=<hex>"); finish(8)
+            }
+            let uuid = expandChar(String(parts[0]))
+            if Lumina.writeDenylist.contains(uuid) {
+                log("REFUSED: \(uuid.uuidString) is denylisted"); finish(10)
+            }
+            seqWrites.append((uuid, data))
+        }
+        guard !seqWrites.isEmpty else { log("seq needs <char>=<hex> items"); finish(8) }
+        nextSeqWrite(peripheral)
+    }
+
+    func nextSeqWrite(_ peripheral: CBPeripheral) {
+        guard seqIndex < seqWrites.count else {
+            log("seq complete (\(seqWrites.count) writes, one connection)")
+            // Linger briefly so the effect isn't confused with the disconnect.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { finish(0) }
+            return
+        }
+        let w = seqWrites[seqIndex]
+        guard let c = findChar(peripheral, w.uuid) else {
+            log("char \(w.uuid) not found"); finish(9)
+        }
+        log("[\(ts())] SEQ \(seqIndex + 1)/\(seqWrites.count) write \(w.data.hexString) -> \(w.uuid.uuidString)")
+        seqIndex += 1
+        peripheral.writeValue(w.data, for: c, type: .withResponse)
+    }
+
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         log("write ack: \(error.map(String.init(describing:)) ?? "OK")")
+        if command == "seq" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { self.nextSeqWrite(peripheral) }
+            return
+        }
         readBack(peripheral)
     }
 

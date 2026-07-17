@@ -18,7 +18,7 @@ and heard/saw the result. **W is required before a row counts as verified.**
 |---|---|---|---|
 | `ff2` | Light mode / power | 1 byte: 01 Rainbow, 02 Breathe, 03 Static, 04 Aurora, 05 Music, **06 = off** (00 rejected) | D+W |
 | `fea` | Brightness | 2 bytes `[pct, pct]` 0–100, written identical; animated modes only (no effect in Static) | D+W+L |
-| `ff3` | Static **and Breathe** color | 6 bytes: RGB triplet ×2 (write same triplet twice; first triplet drives both satellites). Breathe confirmed cyan after writing `00ffff…` (2026-07-17). Does **not** affect Music React colors. | D+W |
+| `ff3` | **Universal mode-color register** | 6 bytes = two RGB triplets, meaning depends on active mode: **Static/Breathe** = solid color (same triplet twice); **Music React** = gradient pair; **Aurora** = tone pair. Rules: (1) the ff3 write must arrive on the **same connection** as the ff2 mode write — per-write reconnects don't apply, and mode transitions clear ff3, so always rewrite ff2 then ff3 together; (2) in Music React only the four official byte-pairs give a fixed gradient — **any other pair = cycle-through-all-presets** (usable as a bonus fifth option). Pairs (captured from phone app): Music P1 Blue→Purple `0000ff/ff00ff`, P2 Cyan→Blue `00ffff/0000ff`, P3 Red→Purple `ff0000/ff007f`, P4 Yellow→Orange `ffff00/ff7f00`; Aurora Cool `0000ff/00ffff`, Warm `ff0000/ff7f00`. | D+W |
 | `fa4` | Sub gain | 1 byte, dB = raw − 20, range −20..+10 (raw 0..30). NOT the Fives' 2-byte format. Cross-checked: phone app +2 dB ↔ raw 22. | D+W |
 | `f17` | 6-band EQ | 48-byte blob (six 8-byte records, gain = last byte, signed dB −6..+6; layout below). Wrote +6 @ 50 Hz → audibly boomier; user's phone-app settings (−2 @ 3.5k/8k) matched the baseline decode. Full-blob writes only (a 32-byte partial write was silently ignored). | D+W |
 | `f24` | Sound mode | 1 byte: **01 Movie, 02 Music, 03 Virtual Surround** (00 rejected, like ff2). Music=02 cross-checked against phone app; 03 confirmed surround-like by ear; Movie=01 by elimination. | D+W |
@@ -64,19 +64,21 @@ full 48-byte blob must be rewritten.
 | `fd2` | `02` | Input select (02 = Bluetooth on Fives… but likely USB here) | D (nice-to-have) |
 | `fe9` | `8403` | LE 0x0384 = 900 s — auto-standby timer? | ignore |
 
-## Unknown — still needs discovery
+## Remaining unknowns (all requested features are now decoded)
 
-| Feature | Hypothesis / method |
+| Item | Notes |
 |---|---|
-| Music React presets 1–4 | **Gradient-endpoints hypothesis REFUTED** (2026-07-17): wrote cyan→blue into `ff3` while in Music React — LEDs stayed red/purple. (`ff3`'s second triplet role still unknown.) Next: phone-app dump-diff per preset. Candidates to watch: `fef/ff0/ff1` (read empty), `f27`, `f2c`. |
-| Aurora Cool/Warm | D toggle in phone app; if inconclusive, W-probe R/W/N chars in `da6d0fe1` while in Aurora. |
+| `f27`, `f2c`, `fd5`, `fe7` | Unidentified readable chars; harmless to leave alone. |
+| `fef/ff0/ff1` | R/W/N, read empty, writes ack but don't retain — likely Screen React streaming; out of scope. |
 | Screen React / streaming | Service `da6d0ff1` (chars f9–ff, all empty) — out of scope. |
 
 ## Never write
 
-`fe8` (**FACTORY RESET**), `fc6` (likely firmware update), `fa5`, `fa6`, `fe3`
-(unidentified write-only). Enforced in code: probe refuses them and
-`LuminaClient.write` denylists them (`Lumina.writeDenylist`).
+`fe8` (**FACTORY RESET**). `fe3` — **verified dangerous 2026-07-17: writing
+`01` RESTARTS the device** (audio drops, lighting engine resets). `fc6`
+(likely firmware update), `fa5`, `fa6` (unidentified write-only). Enforced in
+code: probe refuses them and `LuminaClient.write` denylists them
+(`Lumina.writeDenylist`).
 
 ## Discovery playbook
 

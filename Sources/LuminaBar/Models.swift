@@ -49,11 +49,30 @@ enum SoundMode: UInt8, CaseIterable {
     }
 }
 
+/// Aurora tone = a gradient pair in ff3, same mechanism as Music React.
+/// Byte values captured from the phone app 2026-07-17.
 enum AuroraTone: String, CaseIterable {
     case cool = "Cool"
     case warm = "Warm"
+
+    var start: RGB {
+        switch self {
+        case .cool: RGB(r: 0, g: 0, b: 255)
+        case .warm: RGB(r: 255, g: 0, b: 0)
+        }
+    }
+
+    var end: RGB {
+        switch self {
+        case .cool: RGB(r: 0, g: 255, b: 255)
+        case .warm: RGB(r: 255, g: 127, b: 0)
+        }
+    }
 }
 
+/// Music React gradient presets — EXACT phone-app byte pairs (captured
+/// 2026-07-17). The device only accepts these pairs as fixed gradients; any
+/// other pair falls back to cycling through all presets.
 struct MusicPreset: Identifiable {
     let id: Int
     let name: String
@@ -61,10 +80,10 @@ struct MusicPreset: Identifiable {
     let end: RGB
 
     static let all: [MusicPreset] = [
-        MusicPreset(id: 0, name: "Blue to Purple", start: RGB(r: 0, g: 64, b: 255), end: RGB(r: 128, g: 0, b: 128)),
-        MusicPreset(id: 1, name: "Cyan to Blue", start: RGB(r: 0, g: 255, b: 255), end: RGB(r: 0, g: 64, b: 255)),
-        MusicPreset(id: 2, name: "Red to Purple", start: RGB(r: 255, g: 0, b: 0), end: RGB(r: 128, g: 0, b: 128)),
-        MusicPreset(id: 3, name: "Yellow to Orange", start: RGB(r: 255, g: 220, b: 0), end: RGB(r: 255, g: 120, b: 0)),
+        MusicPreset(id: 0, name: "Blue to Purple", start: RGB(r: 0, g: 0, b: 255), end: RGB(r: 255, g: 0, b: 255)),
+        MusicPreset(id: 1, name: "Cyan to Blue", start: RGB(r: 0, g: 255, b: 255), end: RGB(r: 0, g: 0, b: 255)),
+        MusicPreset(id: 2, name: "Red to Purple", start: RGB(r: 255, g: 0, b: 0), end: RGB(r: 255, g: 0, b: 127)),
+        MusicPreset(id: 3, name: "Yellow to Orange", start: RGB(r: 255, g: 255, b: 0), end: RGB(r: 255, g: 127, b: 0)),
     ]
 }
 
@@ -83,9 +102,8 @@ struct ProtocolCapabilities {
     var volume = true
     var mute = true
     var nightMode = true
-    // Unknown until phone-app dump-diff sessions
-    var auroraTone = false
-    var musicPresets = false
+    var auroraTone = true     // ff3 gradient pair while in mode 04
+    var musicPresets = true   // ff3 gradient pair while in mode 05
 }
 
 let eqBandLabels = ["50", "150", "400", "1k", "3.5k", "8k"]

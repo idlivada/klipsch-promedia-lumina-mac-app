@@ -91,6 +91,12 @@ public enum Encodings {
         Data([c.r, c.g, c.b, c.r, c.g, c.b])
     }
 
+    /// Gradient pair (Music React presets, Aurora tones). Must be written on
+    /// the same connection as the ff2 mode write — mode transitions clear ff3.
+    public static func colorPairData(_ a: RGB, _ b: RGB) -> Data {
+        Data([a.r, a.g, a.b, b.r, b.g, b.b])
+    }
+
     /// Brightness has no effect in Static mode (fea is animated-modes-only),
     /// so static dimming scales the RGB value locally before sending.
     public static func scaled(_ c: RGB, brightnessPercent: Double) -> RGB {

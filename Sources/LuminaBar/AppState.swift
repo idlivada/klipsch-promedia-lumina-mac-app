@@ -77,6 +77,7 @@ final class AppState {
     func setLights(on: Bool) {
         lightsOn = on
         write(Lumina.lightMode, Data([on ? lastActiveMode.rawValue : lightsOffByte]))
+        if on { pushColorPayload(for: lastActiveMode) }
     }
 
     func setMode(_ m: LightMode) {
@@ -85,7 +86,26 @@ final class AppState {
         lightsOn = true
         persist()
         write(Lumina.lightMode, Data([m.rawValue]))
-        if m == .staticColor { pushStaticColor() }
+        // Mode transitions clear ff3 on the device — always re-push the
+        // mode's color payload after the mode write.
+        pushColorPayload(for: m)
+    }
+
+    private func pushColorPayload(for m: LightMode) {
+        switch m {
+        case .staticColor:
+            pushStaticColor()
+        case .breathe:
+            write(Lumina.staticColor, Encodings.colorData(staticColor))
+        case .music:
+            if let p = MusicPreset.all.first(where: { $0.id == musicPresetID }) {
+                write(Lumina.staticColor, Encodings.colorPairData(p.start, p.end))
+            }
+        case .aurora:
+            write(Lumina.staticColor, Encodings.colorPairData(auroraTone.start, auroraTone.end))
+        case .rainbow:
+            break
+        }
     }
 
     func setBrightness(_ p: Double) {
@@ -114,13 +134,21 @@ final class AppState {
 
     func setAuroraTone(_ t: AuroraTone) {
         auroraTone = t
-        // TODO(Phase 1): write once the Aurora tone characteristic is discovered.
+        mode = .aurora
+        lastActiveMode = .aurora
+        lightsOn = true
+        write(Lumina.lightMode, Data([LightMode.aurora.rawValue]))
+        write(Lumina.staticColor, Encodings.colorPairData(t.start, t.end))
     }
 
     func setMusicPreset(_ id: Int) {
         musicPresetID = id
-        // TODO(Phase 1): hypothesis — ff3's two triplets may be the gradient
-        // endpoints in Music mode. If confirmed, write start+end here.
+        guard let p = MusicPreset.all.first(where: { $0.id == id }) else { return }
+        mode = .music
+        lastActiveMode = .music
+        lightsOn = true
+        write(Lumina.lightMode, Data([LightMode.music.rawValue]))
+        write(Lumina.staticColor, Encodings.colorPairData(p.start, p.end))
     }
 
     // MARK: Audio actions
@@ -220,9 +248,17 @@ final class AppState {
         case Lumina.brightness:
             brightness = Double(min(first, 100))
         case Lumina.staticColor:
-            if data.count >= 3 {
-                staticColor = RGB(r: data[0], g: data[1], b: data[2])
+            guard data.count >= 6 else { break }
+            let a = RGB(r: data[0], g: data[1], b: data[2])
+            let b = RGB(r: data[3], g: data[4], b: data[5])
+            if a == b {
+                // Identical triplets = a solid Static/Breathe color.
+                staticColor = a
                 persist()
+            } else if let p = MusicPreset.all.first(where: { $0.start == a && $0.end == b }) {
+                musicPresetID = p.id
+            } else if let t = AuroraTone.allCases.first(where: { $0.start == a && $0.end == b }) {
+                auroraTone = t
             }
         case Lumina.volume:
             volume = Encodings.volumePercent(raw: first)

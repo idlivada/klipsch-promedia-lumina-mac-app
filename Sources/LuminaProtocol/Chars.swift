@@ -30,9 +30,11 @@ public enum Lumina {
     // Present but vestigial/unused on Lumina (f02/f03/f04 legacy bass/mid/treble
     // all read 0x06; the 6-band EQ is f17). f27/f2c are unidentified.
 
-    /// NEVER write these. fe8 is FACTORY RESET on this family; the others are
-    /// unidentified write-only channels (fc6 is likely firmware update).
+    /// NEVER write these. fe8 is FACTORY RESET on this family. fe3 = 01
+    /// RESTARTS THE DEVICE (verified the hard way 2026-07-17: audio dropped,
+    /// lighting engine reset). fc6 is likely firmware update; fa5/fa6 are
+    /// unidentified write-only channels.
     public static let writeDenylist: Set<CBUUID> = [
-        uuid("fe8"), uuid("fc6"), uuid("fa5"), uuid("fa6"), uuid("fe3"),
+        uuid("fe8"), uuid("fe3"), uuid("fc6"), uuid("fa5"), uuid("fa6"),
     ]
 }
