@@ -99,12 +99,15 @@ public enum Encodings {
 
     /// Brightness has no effect in Static mode (fea is animated-modes-only),
     /// so static dimming scales the RGB value locally before sending.
+    /// Never produces all-zero output for a non-black color: the device
+    /// flashes bright when ff3 is written as 000000, so channels floor at 1
+    /// (visually off) instead.
     public static func scaled(_ c: RGB, brightnessPercent: Double) -> RGB {
-        let f = min(max(brightnessPercent, 0), 100) / 100
-        return RGB(
-            r: UInt8((Double(c.r) * f).rounded()),
-            g: UInt8((Double(c.g) * f).rounded()),
-            b: UInt8((Double(c.b) * f).rounded())
-        )
+        var f = min(max(brightnessPercent, 0), 100) / 100
+        if f == 0 { f = 1.0 / 255 }
+        func s(_ v: UInt8) -> UInt8 {
+            v == 0 ? 0 : UInt8(max(1, (Double(v) * f).rounded()))
+        }
+        return RGB(r: s(c.r), g: s(c.g), b: s(c.b))
     }
 }

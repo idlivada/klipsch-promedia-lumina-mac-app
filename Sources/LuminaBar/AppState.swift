@@ -252,9 +252,20 @@ final class AppState {
             let a = RGB(r: data[0], g: data[1], b: data[2])
             let b = RGB(r: data[3], g: data[4], b: data[5])
             if a == b {
-                // Identical triplets = a solid Static/Breathe color.
-                staticColor = a
-                persist()
+                // Identical triplets = a solid Static/Breathe color. In Static
+                // we write a brightness-SCALED color, and the device can echo
+                // it back long after the echo-suppression window — adopting it
+                // would compound the dimming on every brightness change. Only
+                // accept values that differ from our own expected output
+                // (i.e. genuine external changes from the phone app).
+                let expected = Encodings.scaled(
+                    staticColor,
+                    brightnessPercent: mode == .staticColor ? brightness : 100
+                )
+                if a != expected && a != staticColor {
+                    staticColor = a
+                    persist()
+                }
             } else if let p = MusicPreset.all.first(where: { $0.start == a && $0.end == b }) {
                 musicPresetID = p.id
             } else if let t = AuroraTone.allCases.first(where: { $0.start == a && $0.end == b }) {
