@@ -1,0 +1,4 @@
+probe start: dump lumina
+central state: 5
+TIMEOUT: target not found
+===DONE=== exit=4
