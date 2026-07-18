@@ -26,7 +26,7 @@ final class LuminaClient: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
 
     /// Characteristics we map, subscribe to, and initially read.
     private let table: [CBUUID] = [
-        Lumina.lightMode, Lumina.brightness, Lumina.staticColor,
+        Lumina.lightMode, Lumina.staticColor,
         Lumina.volume, Lumina.mute, Lumina.subGain,
         Lumina.nightMode, Lumina.eqBlob, Lumina.soundMode, Lumina.input,
     ]

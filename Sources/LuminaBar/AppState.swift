@@ -254,11 +254,6 @@ final class AppState {
                 lastActiveMode = m
                 persist()
             }
-        case Lumina.brightness:
-            // fea is the pod/phone brightness mirror. Our brightness is applied
-            // by RGB-scaling instead, so do NOT sync it from fea — the two are
-            // unrelated and adopting fea would desync the slider.
-            break
         case Lumina.staticColor:
             guard data.count >= 6 else { break }
             let a = RGB(r: data[0], g: data[1], b: data[2])

@@ -22,8 +22,8 @@ func argValue(_ flag: String) -> String? {
 }
 let outPath = argValue("--out") ?? "/tmp/probe-out.txt"
 // Positional = tokens that are neither a --flag nor the value immediately
-// following one. (Previously only --out's value was excluded, so --watch/--delay
-// values leaked in and corrupted seq parsing.)
+// following one, so a flag value (e.g. --watch 5) can't leak in and corrupt
+// seq parsing.
 let positional: [String] = {
     var result: [String] = []
     let all = Array(args.dropFirst())
@@ -77,7 +77,6 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     var discoveredServices = 0
     var servicesWithCharsDone = 0
     var writeChar: CBCharacteristic?
-    var readTarget: CBCharacteristic?
     var seqWrites: [(uuid: CBUUID, data: Data)] = []
     var seqIndex = 0
 
@@ -156,18 +155,11 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             }
             if servicesWithCharsDone == discoveredServices && pendingCharReads == 0 { finish(0) }
         } else if command == "write", servicesWithCharsDone == discoveredServices {
-            // Subscribe first: the device rejects some writes (observed on fea)
-            // from centrals with no active notify subscription.
-            subscribeAll(peripheral)
-            let delay = Double(argValue("--delay") ?? "1") ?? 1
-            log("waiting \(delay)s before write")
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self.doWrite(peripheral) }
+            doWrite(peripheral)
         } else if command == "read", servicesWithCharsDone == discoveredServices {
             doRead(peripheral)
         } else if command == "seq", servicesWithCharsDone == discoveredServices {
-            subscribeAll(peripheral)
-            let delay = Double(argValue("--delay") ?? "1") ?? 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self.startSeq(peripheral) }
+            startSeq(peripheral)
         } else if command == "listen" {
             for c in service.characteristics ?? [] where c.properties.contains(.notify) || c.properties.contains(.indicate) {
                 peripheral.setNotifyValue(true, for: c)
@@ -190,26 +182,13 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         if command == "dump" {
             pendingCharReads -= 1
             if pendingCharReads == 0 && servicesWithCharsDone == discoveredServices { finish(0) }
-        } else if command == "read" {
+        } else if command == "read" || command == "write" {
             finish(0)
-        } else if command == "write" {
-            // Notifications also land here now — only finish on the actual
-            // read-back of the char we wrote.
-            if awaitingReadBack && characteristic.uuid == writeChar?.uuid { finish(0) }
         }
     }
-    var awaitingReadBack = false
 
     func findChar(_ peripheral: CBPeripheral, _ uuid: CBUUID) -> CBCharacteristic? {
         peripheral.services?.flatMap { $0.characteristics ?? [] }.first { $0.uuid == uuid }
-    }
-
-    func subscribeAll(_ peripheral: CBPeripheral) {
-        for s in peripheral.services ?? [] {
-            for c in s.characteristics ?? [] where c.properties.contains(.notify) {
-                peripheral.setNotifyValue(true, for: c)
-            }
-        }
     }
 
     func doRead(_ peripheral: CBPeripheral) {
@@ -286,7 +265,6 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
 
     func readBack(_ peripheral: CBPeripheral) {
         guard let c = writeChar, c.properties.contains(.read) else { finish(0) }
-        awaitingReadBack = true
         peripheral.readValue(for: c)
     }
 }

@@ -14,8 +14,10 @@ public enum Lumina {
 
     // Lighting — verified on Lumina fw 1.0.1 (LUMINA_SPEAKER_APP.md §1)
     public static let lightMode = uuid("ff2")     // 1 byte: 0x01–0x05 modes, 0x06 = lights off
-    public static let brightness = uuid("fea")    // 2 bytes: [pct, pct], 0–100 each, written identical
     public static let staticColor = uuid("ff3")   // 6 bytes: RGB triplet twice
+    // fea is a read-only brightness *mirror* (the pod updates it; a BLE central
+    // cannot drive it — see PROTOCOL.md). Brightness is applied by RGB-scaling
+    // the color instead, so the app never reads or writes fea.
 
     // Audio — verified on Lumina fw 1.0.1 during Phase 1 (2026-07-17), see PROTOCOL.md
     public static let volume = uuid("fa2")        // 1 byte, 0..0x24 (36 steps)

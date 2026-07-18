@@ -78,13 +78,6 @@ public enum Encodings {
 
     public static func subGainDB(raw: UInt8) -> Int { Int(raw) - subOffsetDB }
 
-    // MARK: Brightness (fea) — VERIFIED: two identical percent bytes
-
-    public static func brightnessData(percent: Double) -> Data {
-        let p = UInt8(min(max(percent, 0), 100).rounded())
-        return Data([p, p])
-    }
-
     // MARK: Mode color register (ff3) — two RGB triplets, meaning per mode.
     // Static/Breathe: [color, 000000] (phone-app format; brightness lives in
     // fea, which works in ALL modes). Music React / Aurora: gradient pair.
