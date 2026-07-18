@@ -106,12 +106,20 @@ final class AppState {
         }
     }
 
+    /// Brightness is applied by re-scaling the displayed color (fea is a
+    /// read-only mirror). It therefore affects Static and Breathe, whose color
+    /// we own; Rainbow/Aurora/Music render their own colors and can't be dimmed
+    /// from a BLE central without breaking their gradients.
     func setBrightness(_ p: Double) {
         brightness = p
         persist()
-        // fea controls brightness in ALL modes, Static included (the handoff
-        // doc's claim that it doesn't was disproven by phone-app dump-diffs).
-        write(Lumina.brightness, Encodings.brightnessData(percent: p), throttled: true)
+        if mode == .staticColor || mode == .breathe {
+            pushStaticColor(throttled: true)
+        }
+    }
+
+    var brightnessAffectsCurrentMode: Bool {
+        mode == .staticColor || mode == .breathe
     }
 
     func setStaticColor(_ c: RGB) {
@@ -121,10 +129,10 @@ final class AppState {
     }
 
     private func pushStaticColor(throttled: Bool = false) {
-        // Static/Breathe wire format (per phone-app dump): [color, 000000].
+        // Scale the true color by brightness (fea can't be driven externally).
         write(
             Lumina.staticColor,
-            Encodings.colorPairData(staticColor, RGB(r: 0, g: 0, b: 0)),
+            Encodings.solidColorData(staticColor, brightnessPercent: brightness),
             throttled: throttled
         )
     }
@@ -219,6 +227,10 @@ final class AppState {
         switch event {
         case .connected:
             connection = .connected
+            // The UI owns the Static/Breathe color and brightness; push the
+            // scaled color so the device matches (its retained value is the
+            // last scaled write, which we must not read back — see apply()).
+            if mode == .staticColor || mode == .breathe { pushStaticColor() }
         case .disconnected:
             if connection != .released { connection = .searching }
         case .value(let uuid, let data):
@@ -243,17 +255,22 @@ final class AppState {
                 persist()
             }
         case Lumina.brightness:
-            brightness = Double(min(first, 100))
+            // fea is the pod/phone brightness mirror. Our brightness is applied
+            // by RGB-scaling instead, so do NOT sync it from fea — the two are
+            // unrelated and adopting fea would desync the slider.
+            break
         case Lumina.staticColor:
             guard data.count >= 6 else { break }
             let a = RGB(r: data[0], g: data[1], b: data[2])
             let b = RGB(r: data[3], g: data[4], b: data[5])
             let black = RGB(r: 0, g: 0, b: 0)
             if b == black || a == b {
-                // Solid Static/Breathe color: phone writes [color, 000000],
-                // older writers used [color, color]. ff3 holds the true color
-                // (brightness lives in fea), so two-way sync is safe.
-                if a != black && a != staticColor {
+                // Solid Static/Breathe color. We write a brightness-SCALED
+                // value here and never want to read it back (that would
+                // compound the dimming), so in those modes the UI is
+                // authoritative and inbound values are ignored. Only adopt a
+                // solid color when we're NOT the source (other modes active).
+                if mode != .staticColor && mode != .breathe && a != black && a != staticColor {
                     staticColor = a
                     persist()
                 }

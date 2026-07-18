@@ -21,7 +21,26 @@ func argValue(_ flag: String) -> String? {
     return args[i + 1]
 }
 let outPath = argValue("--out") ?? "/tmp/probe-out.txt"
-let positional = args.dropFirst().filter { !$0.hasPrefix("--") && $0 != argValue("--out") }
+// Positional = tokens that are neither a --flag nor the value immediately
+// following one. (Previously only --out's value was excluded, so --watch/--delay
+// values leaked in and corrupted seq parsing.)
+let positional: [String] = {
+    var result: [String] = []
+    let all = Array(args.dropFirst())
+    var i = 0
+    while i < all.count {
+        let tok = all[i]
+        if tok == "--wor" {
+            i += 1  // valueless boolean flag
+        } else if tok.hasPrefix("--") {
+            i += 2  // skip the flag and its value
+        } else {
+            result.append(tok)
+            i += 1
+        }
+    }
+    return result
+}()
 
 let outURL = URL(fileURLWithPath: outPath)
 FileManager.default.createFile(atPath: outPath, contents: nil)
@@ -137,11 +156,18 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             }
             if servicesWithCharsDone == discoveredServices && pendingCharReads == 0 { finish(0) }
         } else if command == "write", servicesWithCharsDone == discoveredServices {
-            doWrite(peripheral)
+            // Subscribe first: the device rejects some writes (observed on fea)
+            // from centrals with no active notify subscription.
+            subscribeAll(peripheral)
+            let delay = Double(argValue("--delay") ?? "1") ?? 1
+            log("waiting \(delay)s before write")
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self.doWrite(peripheral) }
         } else if command == "read", servicesWithCharsDone == discoveredServices {
             doRead(peripheral)
         } else if command == "seq", servicesWithCharsDone == discoveredServices {
-            startSeq(peripheral)
+            subscribeAll(peripheral)
+            let delay = Double(argValue("--delay") ?? "1") ?? 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self.startSeq(peripheral) }
         } else if command == "listen" {
             for c in service.characteristics ?? [] where c.properties.contains(.notify) || c.properties.contains(.indicate) {
                 peripheral.setNotifyValue(true, for: c)
@@ -164,13 +190,26 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         if command == "dump" {
             pendingCharReads -= 1
             if pendingCharReads == 0 && servicesWithCharsDone == discoveredServices { finish(0) }
-        } else if command == "write" || command == "read" {
+        } else if command == "read" {
             finish(0)
+        } else if command == "write" {
+            // Notifications also land here now — only finish on the actual
+            // read-back of the char we wrote.
+            if awaitingReadBack && characteristic.uuid == writeChar?.uuid { finish(0) }
         }
     }
+    var awaitingReadBack = false
 
     func findChar(_ peripheral: CBPeripheral, _ uuid: CBUUID) -> CBCharacteristic? {
         peripheral.services?.flatMap { $0.characteristics ?? [] }.first { $0.uuid == uuid }
+    }
+
+    func subscribeAll(_ peripheral: CBPeripheral) {
+        for s in peripheral.services ?? [] {
+            for c in s.characteristics ?? [] where c.properties.contains(.notify) {
+                peripheral.setNotifyValue(true, for: c)
+            }
+        }
     }
 
     func doRead(_ peripheral: CBPeripheral) {
@@ -220,9 +259,11 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
 
     func nextSeqWrite(_ peripheral: CBPeripheral) {
         guard seqIndex < seqWrites.count else {
-            log("seq complete (\(seqWrites.count) writes, one connection)")
-            // Linger briefly so the effect isn't confused with the disconnect.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { finish(0) }
+            let linger = Double(argValue("--watch") ?? "2") ?? 2
+            log("seq complete (\(seqWrites.count) writes, one connection) — watching \(Int(linger))s")
+            // Keep the connection open and log any notifications (e.g. fea
+            // mirroring a brightness change) so writes can be attributed.
+            DispatchQueue.main.asyncAfter(deadline: .now() + linger) { finish(0) }
             return
         }
         let w = seqWrites[seqIndex]
@@ -245,6 +286,7 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
 
     func readBack(_ peripheral: CBPeripheral) {
         guard let c = writeChar, c.properties.contains(.read) else { finish(0) }
+        awaitingReadBack = true
         peripheral.readValue(for: c)
     }
 }

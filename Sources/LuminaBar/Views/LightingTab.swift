@@ -51,17 +51,27 @@ struct LightingTab: View {
         }
     }
 
+    @ViewBuilder
     private var brightnessRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sun.min")
-                .foregroundStyle(.secondary)
-            Slider(
-                value: Binding(get: { state.brightness }, set: { state.setBrightness($0) }),
-                in: 0...100,
-                onEditingChanged: { state.setEditing(Lumina.brightness, $0) }
-            )
-            Image(systemName: "sun.max.fill")
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Image(systemName: "sun.min")
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: Binding(get: { state.brightness }, set: { state.setBrightness($0) }),
+                    in: 0...100,
+                    onEditingChanged: { state.setEditing(Lumina.staticColor, $0) }
+                )
+                Image(systemName: "sun.max.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .disabled(!state.brightnessAffectsCurrentMode)
+            .opacity(state.brightnessAffectsCurrentMode ? 1 : 0.4)
+            if !state.brightnessAffectsCurrentMode {
+                Text("Brightness applies to Static and Breathe modes.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 

@@ -93,4 +93,23 @@ public enum Encodings {
     public static func colorPairData(_ a: RGB, _ b: RGB) -> Data {
         Data([a.r, a.g, a.b, b.r, b.g, b.b])
     }
+
+    /// Static/Breathe brightness: the fea register is a read-only status mirror
+    /// (the pod updates it; a BLE central cannot drive it), so brightness is
+    /// applied by scaling the color the device displays — verified on hardware.
+    /// Non-zero channels floor at 1 so an all-zero write (which flashes the
+    /// device bright) never happens; brightness 0 reads as visually off.
+    public static func scaled(_ c: RGB, brightnessPercent: Double) -> RGB {
+        let f = min(max(brightnessPercent, 0), 100) / 100
+        func s(_ v: UInt8) -> UInt8 {
+            v == 0 ? 0 : UInt8(max(1, (Double(v) * f).rounded()))
+        }
+        return RGB(r: s(c.r), g: s(c.g), b: s(c.b))
+    }
+
+    /// Solid-color payload (Static/Breathe): the scaled color written twice.
+    public static func solidColorData(_ c: RGB, brightnessPercent: Double) -> Data {
+        let s = scaled(c, brightnessPercent: brightnessPercent)
+        return Data([s.r, s.g, s.b, s.r, s.g, s.b])
+    }
 }
