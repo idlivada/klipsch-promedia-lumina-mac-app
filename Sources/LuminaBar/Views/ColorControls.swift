@@ -1,7 +1,7 @@
 import SwiftUI
 import LuminaProtocol
 
-/// Swatch grid + native color picker for Static (and Breathe, once verified).
+/// Color wheel + swatch grid for Static and Breathe.
 struct ColorControls: View {
     @Environment(AppState.self) private var state
 
@@ -19,7 +19,14 @@ struct ColorControls: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            ColorWheelView(
+                rgb: state.staticColor,
+                onChange: { state.setStaticColor($0) },
+                onEditingChanged: { state.setEditing(Lumina.staticColor, $0) }
+            )
+            .frame(maxWidth: .infinity)
+
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5), spacing: 6) {
                 ForEach(Self.swatches.indices, id: \.self) { i in
                     let swatch = Self.swatches[i]
@@ -40,27 +47,6 @@ struct ColorControls: View {
                     .buttonStyle(.plain)
                 }
             }
-
-            ColorPicker(
-                "Custom Color",
-                selection: Binding(
-                    get: { Color(rgb: state.staticColor) },
-                    set: { state.setStaticColor(RGB(color: $0)) }
-                ),
-                supportsOpacity: false
-            )
-            .font(.subheadline)
         }
-    }
-}
-
-extension RGB {
-    init(color: Color) {
-        let ns = NSColor(color).usingColorSpace(.sRGB) ?? .white
-        self.init(
-            r: UInt8((ns.redComponent * 255).rounded()),
-            g: UInt8((ns.greenComponent * 255).rounded()),
-            b: UInt8((ns.blueComponent * 255).rounded())
-        )
     }
 }
