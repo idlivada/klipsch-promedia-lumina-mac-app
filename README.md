@@ -43,15 +43,25 @@ is connected your phone app can't be, and vice-versa. Lumina includes a
 ## Requirements
 
 - macOS 14 (Sonoma) or later
-- A Mac with Bluetooth
-- Xcode Command Line Tools (for the Swift compiler) — install with:
-  ```sh
-  xcode-select --install
-  ```
-
-There is no pre-built download yet, so you build it from source (one command).
+- A Mac with Bluetooth (Apple Silicon and Intel are both supported)
 
 ## Install
+
+### Option 1 — download the release (easiest)
+
+1. Download `Lumina-v1.0.0.zip` from the
+   [v1.0.0 release](https://github.com/idlivada/klipsch-promedia-lumina-mac-app/releases/tag/v1.0.0)
+   and unzip it.
+2. Move `Lumina.app` wherever you like (e.g. your Applications folder).
+3. The app is ad-hoc signed (not notarized), so macOS will warn you on first
+   launch. Right-click `Lumina.app` → **Open** → **Open**, or run:
+   ```sh
+   xattr -dr com.apple.quarantine Lumina.app
+   ```
+
+### Option 2 — build from source
+
+Requires the Xcode Command Line Tools (`xcode-select --install`).
 
 ```sh
 git clone https://github.com/idlivada/klipsch-promedia-lumina-mac-app.git
