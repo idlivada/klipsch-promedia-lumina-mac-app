@@ -4,8 +4,16 @@ A lightweight macOS menu-bar app that controls **Klipsch ProMedia Lumina 2.1**
 speakers over Bluetooth LE — volume, EQ, sound modes, subwoofer gain, and the
 full RGB lighting system — from a small popover in your menu bar.
 
-<!-- Add a screenshot here once you have one:
-![Lumina popover](docs/screenshot.png) -->
+<p align="center">
+  <img src="docs/screenshot-audio.png" width="320" alt="Audio tab — volume, sound modes, night mode, sub gain, and 6-band equalizer">
+  &nbsp;&nbsp;
+  <img src="docs/screenshot-lighting.png" width="320" alt="Lighting tab — light modes, brightness, color wheel, and color swatches">
+</p>
+
+Tweak the six-band EQ mid-song, drop the sub a few dB at night, or dial in the
+exact shade of red on the light ring — all without reaching for your phone.
+One click on the menu-bar icon and every control the speakers have is right
+there, in a native app that feels at home on your Mac.
 
 ## What it does
 
