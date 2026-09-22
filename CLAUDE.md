@@ -15,10 +15,11 @@ A macOS menu-bar app (SwiftPM, macOS 14+, no Xcode project) controlling **Klipsc
                             # (LUMINA_SIGN_ID overrides), else ad-hoc
 ./scripts/probe.sh dump lumina            # BLE diagnostic tool (also: scan/read/write/listen)
 ./scripts/probe.sh write lumina ff2 03    # example: set Static mode
+./scripts/ambient-test.sh snapshot|suite|step   # webcam check of Ambient (see below)
 swift build                 # compile-check all targets (fast, no bundling)
 ```
 
-There are no tests. Verification is compile (`swift build`) plus running against the physical speakers. Ambient mode was tuned with a webcam aimed at the LEDs: running `ffmpeg` on the camera from a shell is silently denied by TCC, so the capture tool must be a bundled `.app` with `NSCameraUsageDescription` launched via `open` (same pattern as the probe).
+There are no tests. Verification is compile (`swift build`) plus running against the physical speakers. Ambient mode is verified with a webcam aimed at the LEDs via `scripts/ambient-test.sh`: it shows full-screen color patterns (`colorwall`), grabs webcam frames with a bundled `.app` (`camgrab` — shell `ffmpeg` on the camera is silently denied by TCC, so it's launched via `open` like the probe), and scores the LED hue per scenario (`analyze.py`; set `CROP` to the LED region after checking a `snapshot`). Webcam auto-exposure makes brightness meaningless — judge hue; a black screen shows as the room becoming visible. Output lands in `build/ambient-test/`.
 
 **Important:** the binaries must run from a bundled `.app` launched via `open` (LaunchServices) — macOS TCC only grants Bluetooth permission that way. Never execute `.build/release/LuminaBar` or `probe` directly; use the scripts, which bundle + codesign + `open`. Probe output lands in `probe-dumps/last-run.txt` (the script tails it until `===DONE===`).
 
