@@ -7,7 +7,7 @@ full RGB lighting system — from a small popover in your menu bar.
 <p align="center">
   <img src="docs/screenshot-audio.png" width="320" alt="Audio tab — volume, sound modes, night mode, sub gain, and 6-band equalizer">
   &nbsp;&nbsp;
-  <img src="docs/screenshot-lighting.png" width="320" alt="Lighting tab — light modes, brightness, color wheel, and color swatches">
+  <img src="docs/screenshot-lighting.png" width="320" alt="Lighting tab — light modes including Ambient, brightness, color wheel, and color swatches">
 </p>
 
 Tweak the six-band EQ mid-song, drop the sub a few dB at night, dial in the
