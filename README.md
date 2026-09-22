@@ -10,8 +10,9 @@ full RGB lighting system — from a small popover in your menu bar.
   <img src="docs/screenshot-lighting.png" width="320" alt="Lighting tab — light modes, brightness, color wheel, and color swatches">
 </p>
 
-Tweak the six-band EQ mid-song, drop the sub a few dB at night, or dial in the
-exact shade of red on the light ring — all without reaching for your phone.
+Tweak the six-band EQ mid-song, drop the sub a few dB at night, dial in the
+exact shade of red on the light ring, or switch on **Ambient** and let the
+lights follow whatever is on your screen — all without reaching for your phone.
 One click on the menu-bar icon and every control the speakers have is right
 there, in a native app that feels at home on your Mac.
 
@@ -28,16 +29,13 @@ Once connected, Lumina gives you a two-tab popover:
 
 **Lighting**
 - **Lights** on/off (remembers your last mode)
-- **Modes** — Rainbow, Breathe, Static, Aurora, Music React
-- **Brightness** (Static and Breathe)
+- **Modes** — Rainbow, Breathe, Static, Aurora, Music React, and **Ambient**
+- **Brightness** (Static, Breathe, and Ambient)
 - **Static / Breathe** — color swatches plus a full color picker
 - **Aurora** — Cool or Warm tone
 - **Music React** — four gradient presets (Blue→Purple, Cyan→Blue, Red→Purple, Yellow→Orange)
-- **Ambient** — the lights follow the colors on your screen, Ambilight-style:
-  screen edges count most (so the glow looks like the picture spilling onto the
-  wall), movie letterbox bars are ignored, dark scenes take the color of
-  whatever is lit, and a black screen turns the lights off. Pick which display
-  to follow when you have more than one.
+- **Ambient** — the lights follow the colors on your screen, Ambilight-style
+  (see [Ambient mode](#ambient-mode) below)
 
 Changes you make on the speaker's control pod (like the brightness button) are
 reflected back in the app automatically.
@@ -82,9 +80,17 @@ cd klipsch-promedia-lumina-mac-app
 ./scripts/build.sh --open
 ```
 
-`build.sh` compiles the app, bundles it as `build/Lumina.app`, ad-hoc code-signs
-it, and (`--open`) launches it. To run it again later, just open `build/Lumina.app`
-or drag it to your Applications folder.
+`build.sh` compiles the app, bundles it as `build/Lumina.app`, code-signs it, and
+(`--open`) launches it. To run it again later, just open `build/Lumina.app` or
+drag it to your Applications folder.
+
+By default the build is ad-hoc signed, which means macOS forgets the **Screen
+Recording** permission (needed for Ambient) every time you rebuild. To avoid
+that, create a signing certificate once: **Keychain Access → Certificate
+Assistant → Create a Certificate…**, name it `Lumina Dev`, Identity Type
+**Self-Signed Root**, Certificate Type **Code Signing**. `build.sh` uses it
+automatically when present (or set `LUMINA_SIGN_ID` to use a different
+identity).
 
 ### First launch
 
@@ -107,11 +113,54 @@ inside the popover.
 - Switch between the **Audio** and **Lighting** tabs.
 - The **gear menu** (top-right) has **Release to Phone App / Reconnect** and **Quit**.
 
+### Ambient mode
+
+Ambient turns the speakers into a bias light for your screen: the light ring
+takes on the colors of whatever you're watching or working on, so the glow on
+the wall looks like the picture continuing past the edges of your display.
+
+**Turning it on:** open the **Lighting** tab and click **Ambient** (the display
+icon at the end of the mode row). The first time, grant Screen Recording access
+(see [First launch](#first-launch)). The panel shows a live swatch of the color
+being sent and a status line — **Following your screen** means it's working.
+
+**How the color is picked**
+- **Edges count most.** Colors near the edges of the screen get the most
+  weight, since that's where the light spills onto the wall. The center still
+  counts, just less.
+- **Letterbox bars are ignored.** Black bars above and below a movie (or at the
+  sides) are detected and skipped, so a widescreen film is judged by the picture
+  itself, not the bars.
+- **Vivid colors win over gray.** Window chrome, text, and gray backgrounds
+  count for little; the dominant hue on screen drives the lights. A mostly
+  white or gray screen gives white light.
+- **Dark scenes stay dark — but colored.** A night scene with one bright object
+  glows dimly in that object's color. A fully black screen turns the lights off.
+- **Brightness follows the picture**, and the **Brightness** slider scales it
+  on top.
+- Changes are smoothed, and the lights settle on a new color in about half a
+  second, so fast cuts blend rather than flicker.
+
+**Good to know**
+- **More than one display?** Use the **Display** picker in the Ambient panel to
+  choose which screen the lights follow (the main display by default).
+- **Keeping a color you like:** switch from Ambient to **Static** or **Breathe**
+  and the color on screen at that moment becomes your Static/Breathe color.
+- Ambient **pauses** while the lights are off, while the speakers are released
+  to the phone app, or while disconnected, and picks up again automatically. It
+  also stays on across restarts of the app.
+- Choosing another mode — in the app, on the speaker's control pod, or in the
+  phone app — ends Ambient.
+- **Privacy:** Lumina samples a tiny, downscaled image of the screen (about
+  64 × 36 pixels) only to compute a color. Nothing is saved, recorded, or sent
+  anywhere except the resulting color to your speakers. Lumina's own popover is
+  excluded from the sample.
+
 ### Notes
 
-- **Brightness** is adjustable in **Static** and **Breathe** modes. Rainbow,
-  Aurora, and Music React render their own colors on the speaker and can't be
-  dimmed from a computer.
+- **Brightness** is adjustable in **Static**, **Breathe**, and **Ambient** modes.
+  Rainbow, Aurora, and Music React render their own colors on the speaker and
+  can't be dimmed from a computer.
 - If the app is stuck **Searching…**, close the Klipsch app on your phone — the
   speakers only allow one connection at a time.
 
@@ -123,12 +172,18 @@ inside the popover.
 | No Bluetooth prompt / can't connect | Grant Bluetooth access in **System Settings → Privacy & Security → Bluetooth**. |
 | Want to use the phone app | Gear menu → **Release to Phone App**, then reconnect later. |
 | `swift: command not found` | Run `xcode-select --install`. |
-| Ambient says "Screen Recording access needed" although Lumina is enabled | The grant belongs to an older build. Remove Lumina from **Screen & System Audio Recording** (−), then click **Retry** and allow. Building from source: create a self-signed **Code Signing** certificate named `Lumina Dev` (Keychain Access → Certificate Assistant) so grants survive rebuilds. |
+| Ambient says "Screen Recording access needed" | Enable Lumina in **System Settings → Privacy & Security → Screen & System Audio Recording**, then click **Retry** (or relaunch Lumina). |
+| …even though Lumina is already enabled there | The grant belongs to an older build. Select Lumina in that list, click **−** to remove it, then click **Retry** and allow. If you build from source, set up the `Lumina Dev` certificate (see [Option 2](#option-2--build-from-source)) so this doesn't recur. |
+| Ambient says "Capture stopped" | The screen was locked, a display was unplugged, or macOS interrupted capture. Click **Retry**. |
+| Ambient is on but the lights don't change | Check that **Lights** is on and the status dot is green — Ambient pauses while the lights are off or the speakers are disconnected. |
+| Ambient follows the wrong monitor | Pick the right screen in the Ambient panel's **Display** menu. |
 
 ## How it works
 
 The Lumina's Bluetooth protocol isn't published by Klipsch; it was
 reverse-engineered by observing the official app and testing against the
 hardware. The full characteristic map and findings are documented in
-[PROTOCOL.md](PROTOCOL.md). This project is an independent, unofficial tool and
+[PROTOCOL.md](PROTOCOL.md). Ambient mode needs nothing special from the
+speaker: it puts the lights in Static mode and streams a new solid color over
+Bluetooth whenever the screen changes. This project is an independent, unofficial tool and
 is not affiliated with or endorsed by Klipsch.
