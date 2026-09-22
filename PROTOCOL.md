@@ -23,6 +23,26 @@ and heard/saw the result. **W is required before a row counts as verified.**
 | `f17` | 6-band EQ | 48-byte blob (six 8-byte records, gain = last byte, signed dB −6..+6; layout below). Wrote +6 @ 50 Hz → audibly boomier; user's phone-app settings (−2 @ 3.5k/8k) matched the baseline decode. Full-blob writes only (a 32-byte partial write was silently ignored). | D+W |
 | `f24` | Sound mode | 1 byte: **01 Movie, 02 Music, 03 Virtual Surround** (00 rejected, like ff2). Music=02 cross-checked against phone app; 03 confirmed surround-like by ear; Movie=01 by elimination. | D+W |
 
+## Ambient streaming on `ff3` — W, webcam-verified 2026-09-22
+
+Ambient mode is app-side: `ff2 = 03` (Static) once, then a stream of solid
+`ff3` writes (`[color, color]`, brightness-scaled) on the same connection — no
+`ff2` rewrite needed per color. Findings (Logitech BRIO aimed at the LEDs,
+full-screen test patterns, `scratchpad` harness):
+
+- `ff3` accepts sustained solid-color writes (write-with-response, one in flight,
+  latest-wins queue) at ~20–30 Hz with no drops, lockups, or mode changes.
+- End-to-end step response (screen change → LED at new hue) ≈ 0.6 s, of which
+  ~0.3 s is dead time (capture + hue gate + BLE + webcam latency) and the rest
+  the app's 120 ms EMA. No device-side fade beyond that was observed.
+- `RGB(1,1,1)` reads as **off** (camera auto-exposure maxes out, no light spill);
+  all-zero is still never written (it flashes bright).
+- The device reproduces saturated primaries/secondaries, white, and orange
+  (`ff8000` ≠ yellow) distinguishably.
+
+The screen → color algorithm and its tunables live in
+`Sources/LuminaBar/Ambient/AmbientColor.swift`.
+
 ## Session 0 inventory — 2026-07-17 (`probe-dumps/00-baseline.txt`)
 
 The Lumina does **not** expose the Fives' `f06` (vocal), `f08`, `f12`–`f15`

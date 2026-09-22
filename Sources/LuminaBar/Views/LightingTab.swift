@@ -28,27 +28,37 @@ struct LightingTab: View {
     private var modeRow: some View {
         HStack(spacing: 6) {
             ForEach(LightMode.allCases, id: \.self) { m in
-                Button {
+                modeTile(m.label, m.symbol, selected: state.mode == m && !state.ambientActive) {
                     state.setMode(m)
-                } label: {
-                    VStack(spacing: 3) {
-                        Image(systemName: m.symbol)
-                            .frame(height: 16)
-                        Text(m.label)
-                            .font(.system(size: 9))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(state.mode == m && state.lightsOn
-                                  ? Color.accentColor.opacity(0.25)
-                                  : Color.secondary.opacity(0.08))
-                    )
                 }
-                .buttonStyle(.plain)
+            }
+            if state.caps.ambient {
+                modeTile("Ambient", "display", selected: state.ambientActive) {
+                    state.setAmbient(true)
+                }
             }
         }
+    }
+
+    private func modeTile(_ label: String, _ symbol: String, selected: Bool,
+                          action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: symbol)
+                    .frame(height: 16)
+                Text(label)
+                    .font(.system(size: 9))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(selected && state.lightsOn
+                          ? Color.accentColor.opacity(0.25)
+                          : Color.secondary.opacity(0.08))
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -78,6 +88,8 @@ struct LightingTab: View {
     @ViewBuilder
     private var conditionalSection: some View {
         switch state.mode {
+        case .staticColor where state.ambientActive:
+            AmbientControls()
         case .staticColor:
             ColorControls()
         case .breathe:

@@ -104,6 +104,8 @@ struct ProtocolCapabilities {
     var nightMode = true
     var auroraTone = true     // ff3 gradient pair while in mode 04
     var musicPresets = true   // ff3 gradient pair while in mode 05
+    // App-side: Static mode + ff3 streamed from a ScreenCaptureKit sample
+    var ambient = true
 }
 
 let eqBandLabels = ["50", "150", "400", "1k", "3.5k", "8k"]

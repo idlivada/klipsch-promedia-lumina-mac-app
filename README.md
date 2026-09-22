@@ -33,6 +33,11 @@ Once connected, Lumina gives you a two-tab popover:
 - **Static / Breathe** — color swatches plus a full color picker
 - **Aurora** — Cool or Warm tone
 - **Music React** — four gradient presets (Blue→Purple, Cyan→Blue, Red→Purple, Yellow→Orange)
+- **Ambient** — the lights follow the colors on your screen, Ambilight-style:
+  screen edges count most (so the glow looks like the picture spilling onto the
+  wall), movie letterbox bars are ignored, dark scenes take the color of
+  whatever is lit, and a black screen turns the lights off. Pick which display
+  to follow when you have more than one.
 
 Changes you make on the speaker's control pod (like the brightness button) are
 reflected back in the app automatically.
@@ -88,6 +93,10 @@ or drag it to your Applications folder.
 2. Make sure the **Klipsch phone app is closed** so the speakers are free to
    connect.
 3. The status dot in the popover turns **green** when connected.
+4. The first time you use **Ambient**, macOS asks for **Screen Recording**
+   access — enable Lumina in System Settings, then click **Retry** (or relaunch).
+   Lumina only samples a tiny, downscaled image of the screen to pick a color;
+   nothing is recorded or stored.
 
 The app lives only in the menu bar (no Dock icon). Quit it from the gear menu
 inside the popover.
@@ -114,6 +123,7 @@ inside the popover.
 | No Bluetooth prompt / can't connect | Grant Bluetooth access in **System Settings → Privacy & Security → Bluetooth**. |
 | Want to use the phone app | Gear menu → **Release to Phone App**, then reconnect later. |
 | `swift: command not found` | Run `xcode-select --install`. |
+| Ambient says "Screen Recording access needed" although Lumina is enabled | The grant belongs to an older build. Remove Lumina from **Screen & System Audio Recording** (−), then click **Retry** and allow. Building from source: create a self-signed **Code Signing** certificate named `Lumina Dev` (Keychain Access → Certificate Assistant) so grants survive rebuilds. |
 
 ## How it works
 

@@ -28,6 +28,17 @@ final class AppState {
     var auroraTone: AuroraTone = .cool
     var musicPresetID = 0
 
+    // MARK: Ambient (app-side: device in Static, ff3 streamed from the screen)
+
+    var ambientActive = false
+    /// Latest sampled screen color (before the brightness slider is applied).
+    /// Separate from `staticColor` so ambient never overwrites the user's pick.
+    var ambientColor = RGB(r: 255, g: 255, b: 255)
+    var ambientStatus: AmbientStatus = .stopped
+    /// nil = main display.
+    var ambientDisplayID: CGDirectDisplayID?
+    var displays: [DisplayInfo] = []
+
     // MARK: Audio state
 
     var volume: Double = 50  // percent
@@ -41,6 +52,7 @@ final class AppState {
 
     @ObservationIgnored private var lastActiveMode: LightMode = .rainbow
     @ObservationIgnored private var client = LuminaClient()
+    @ObservationIgnored private var sampler = ScreenSampler()
     @ObservationIgnored private var throttler: Throttler!
     @ObservationIgnored private var recentWrites: [CBUUID: Date] = [:]
     @ObservationIgnored private var editingChars: Set<CBUUID> = []
@@ -58,6 +70,12 @@ final class AppState {
         client.onEvent = { [weak self] event in
             Task { @MainActor in self?.handle(event) }
         }
+        sampler.onColor = { [weak self] c in
+            MainActor.assumeIsolated { self?.ambientSample(c) }
+        }
+        sampler.onStatus = { [weak self] s in
+            MainActor.assumeIsolated { self?.ambientStatus = s }
+        }
     }
 
     // MARK: Connection actions
@@ -65,11 +83,13 @@ final class AppState {
     func releaseToPhone() {
         connection = .released
         client.release()
+        syncSampler()
     }
 
     func reconnect() {
         connection = .searching
         client.reconnect()
+        syncSampler()
     }
 
     // MARK: Lighting actions
@@ -78,9 +98,17 @@ final class AppState {
         lightsOn = on
         write(Lumina.lightMode, Data([on ? lastActiveMode.rawValue : lightsOffByte]))
         if on { pushColorPayload(for: lastActiveMode) }
+        syncSampler()
     }
 
     func setMode(_ m: LightMode) {
+        // Leaving ambient for a solid-color mode keeps the color on screen at
+        // that moment (exact swatch value, so the LEDs don't jump) — unless
+        // ambient was showing "off" for a black screen.
+        if ambientActive && (m == .staticColor || m == .breathe) && ambientColor != AmbientTracker.off {
+            staticColor = ambientColor
+        }
+        stopAmbient()
         mode = m
         lastActiveMode = m
         lightsOn = true
@@ -128,16 +156,78 @@ final class AppState {
         pushStaticColor(throttled: true)
     }
 
+    /// The solid color Static/Breathe should show: the screen sample while
+    /// ambient is on, otherwise the user's pick.
+    private var displayedSolidColor: RGB { ambientActive ? ambientColor : staticColor }
+
     private func pushStaticColor(throttled: Bool = false) {
         // Scale the true color by brightness (fea can't be driven externally).
         write(
             Lumina.staticColor,
-            Encodings.solidColorData(staticColor, brightnessPercent: brightness),
+            Encodings.solidColorData(displayedSolidColor, brightnessPercent: brightness),
             throttled: throttled
         )
     }
 
+    // MARK: Ambient actions
+
+    func setAmbient(_ on: Bool) {
+        guard on else { return stopAmbient() }
+        ambientActive = true
+        mode = .staticColor
+        lastActiveMode = .staticColor
+        lightsOn = true
+        persist()
+        // ff2 then ff3 on the same connection (mode writes clear ff3).
+        write(Lumina.lightMode, Data([LightMode.staticColor.rawValue]))
+        pushStaticColor()
+        syncSampler()
+    }
+
+    func setAmbientDisplay(_ id: CGDirectDisplayID?) {
+        ambientDisplayID = id
+        persist()
+        syncSampler()
+    }
+
+    /// After granting Screen Recording (or a capture error), try again.
+    func retryAmbient() {
+        sampler.stop()
+        syncSampler()
+    }
+
+    func refreshDisplays() {
+        displays = ScreenSampler.displays()
+    }
+
+    private func stopAmbient() {
+        guard ambientActive else { return }
+        ambientActive = false
+        persist()
+        syncSampler()
+    }
+
+    /// Capture only while it can reach the LEDs; paused (not cancelled) while
+    /// lights are off, released to the phone, or disconnected.
+    private func syncSampler() {
+        if ambientActive && lightsOn && connection == .connected {
+            let id = ambientDisplayID.flatMap { id in displays.contains { $0.id == id } ? id : nil }
+            sampler.start(displayID: id)
+        } else if ambientStatus != .stopped {
+            sampler.stop()
+        }
+    }
+
+    private func ambientSample(_ c: RGB) {
+        guard ambientActive, lightsOn else { return }
+        ambientColor = c
+        // Unthrottled: LuminaClient keeps one write in flight and replaces a
+        // queued ff3 write, so the stream self-limits to the BLE round trip.
+        pushStaticColor()
+    }
+
     func setAuroraTone(_ t: AuroraTone) {
+        stopAmbient()
         auroraTone = t
         mode = .aurora
         lastActiveMode = .aurora
@@ -147,6 +237,7 @@ final class AppState {
     }
 
     func setMusicPreset(_ id: Int) {
+        stopAmbient()
         musicPresetID = id
         guard let p = MusicPreset.all.first(where: { $0.id == id }) else { return }
         mode = .music
@@ -231,8 +322,10 @@ final class AppState {
             // scaled color so the device matches (its retained value is the
             // last scaled write, which we must not read back — see apply()).
             if mode == .staticColor || mode == .breathe { pushStaticColor() }
+            syncSampler()
         case .disconnected:
             if connection != .released { connection = .searching }
+            syncSampler()
         case .value(let uuid, let data):
             apply(uuid, data)
         }
@@ -249,11 +342,14 @@ final class AppState {
             if first == lightsOffByte {
                 lightsOn = false
             } else if let m = LightMode(rawValue: first) {
+                // Pod or phone switched away from Static: they own the lights now.
+                if m != .staticColor { stopAmbient() }
                 lightsOn = true
                 mode = m
                 lastActiveMode = m
                 persist()
             }
+            syncSampler()
         case Lumina.staticColor:
             guard data.count >= 6 else { break }
             let a = RGB(r: data[0], g: data[1], b: data[2])
@@ -310,6 +406,12 @@ final class AppState {
            let rgb = try? JSONDecoder().decode(RGB.self, from: c) {
             staticColor = rgb
         }
+        displays = ScreenSampler.displays()
+        if let id = d.object(forKey: "lumina.ambientDisplay") as? Int {
+            ambientDisplayID = CGDirectDisplayID(id)
+        }
+        // Resumes on connect (syncSampler waits for .connected).
+        ambientActive = d.bool(forKey: "lumina.ambient") && lastActiveMode == .staticColor
     }
 
     private func persist() {
@@ -318,6 +420,12 @@ final class AppState {
         d.set(brightness, forKey: "lumina.brightness")
         if let c = try? JSONEncoder().encode(staticColor) {
             d.set(c, forKey: "lumina.staticColor")
+        }
+        d.set(ambientActive, forKey: "lumina.ambient")
+        if let id = ambientDisplayID {
+            d.set(Int(id), forKey: "lumina.ambientDisplay")
+        } else {
+            d.removeObject(forKey: "lumina.ambientDisplay")
         }
     }
 }
