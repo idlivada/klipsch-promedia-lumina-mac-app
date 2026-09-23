@@ -60,9 +60,15 @@ enum AmbientColor {
     /// value per pixel, so a linear map turned saturated reds into brown; 0.5
     /// lifts those to ~0.6 while dark scenes stay dim (0.19 → 0.44).
     static let intensityGamma: Float = 0.5
+    /// Chosen colors below this saturation are white/gray and shown as white;
+    /// everything else is pushed to full saturation (same hue). The LEDs look
+    /// washed out otherwise — e.g. a red scene averaged to #b13526 (sat 0.79)
+    /// and read as dull until pushed to the rim of the color wheel.
+    static let whiteSaturation: Float = 0.2
 
     struct Sample {
-        /// Chosen color normalized to full value (max channel = 1).
+        /// Chosen color at full value (max channel = 1) and, unless white, full
+        /// saturation (min channel = 0).
         var color: SIMD3<Float>
         /// Mean HSV value of the content region, gamma-lifted and floored. HSV
         /// value rather than luminance: luminance weights red at 0.21, so vivid
@@ -178,6 +184,16 @@ enum AmbientColor {
         }
         let mx = color.max()
         color = mx > 0 ? color / mx : SIMD3(1, 1, 1)
+        let mn = color.min()  // with max = 1, saturation = 1 - min
+        if 1 - mn < whiteSaturation {
+            color = SIMD3(1, 1, 1)
+            hueBin = nil
+        } else {
+            color = (color - SIMD3(repeating: mn)) / (1 - mn)  // same hue, full saturation
+            // A saturated blended mean is now a definite hue too — give it a bin
+            // so the tracker's hue gate damps flips between hues.
+            hueBin = hueBin ?? Int(hsv(color).h * Float(hueBins)) % hueBins
+        }
         return Sample(color: color, intensity: intensity, hueBin: hueBin)
     }
 }

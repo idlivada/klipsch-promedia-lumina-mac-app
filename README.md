@@ -134,6 +134,9 @@ being sent and a status line — **Following your screen** means it's working.
 - **Vivid colors win over gray.** Window chrome, text, and gray backgrounds
   count for little; the dominant hue on screen drives the lights. A mostly
   white or gray screen gives white light.
+- **Always fully saturated.** Once a hue is picked, the lights show it at full
+  saturation — screen colors are rarely pure, and a muted color looks washed
+  out on LEDs. Only a genuinely white or gray result stays white.
 - **Dark scenes stay dark — but colored.** A night scene with one bright object
   glows dimly in that object's color. A fully black screen turns the lights off.
 - **Brightness follows the picture**, and the **Brightness** slider scales it
