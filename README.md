@@ -60,8 +60,8 @@ is connected your phone app can't be, and vice-versa. Lumina includes a
 
 ### Option 1 — download the release (easiest)
 
-1. Download `Lumina-v1.0.0.zip` from the
-   [v1.0.0 release](https://github.com/idlivada/klipsch-promedia-lumina-mac-app/releases/tag/v1.0.0)
+1. Download `Lumina-v1.1.0.zip` from the
+   [latest release](https://github.com/idlivada/klipsch-promedia-lumina-mac-app/releases/latest)
    and unzip it.
 2. Move `Lumina.app` wherever you like (e.g. your Applications folder).
 3. The app is ad-hoc signed (not notarized), so macOS will warn you on first

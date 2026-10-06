@@ -17,7 +17,10 @@ A macOS menu-bar app (SwiftPM, macOS 14+, no Xcode project) controlling **Klipsc
 ./scripts/probe.sh write lumina ff2 03    # example: set Static mode
 ./scripts/ambient-test.sh snapshot|suite|step   # webcam check of Ambient (see below)
 swift build                 # compile-check all targets (fast, no bundling)
+./scripts/release.sh 1.1.0  # universal, ad-hoc-signed build/release/Lumina-v1.1.0.zip
 ```
+
+**Releasing:** bump `CFBundleShortVersionString`/`CFBundleVersion` in `Resources/Info-App.plist` (`release.sh` refuses a version mismatch), run `release.sh`, commit, tag `vX.Y.Z`, then `gh release create vX.Y.Z build/release/Lumina-vX.Y.Z.zip`. The README links to `releases/latest`, so only its zip filename needs bumping. Releases are always ad-hoc signed (never the local "Lumina Dev" cert); `swift build --arch a --arch b` needs Xcode's XCBuild, so the script builds each `--triple` and merges them with `lipo`.
 
 There are no tests. Verification is compile (`swift build`) plus running against the physical speakers. Ambient mode is verified with a webcam aimed at the LEDs via `scripts/ambient-test.sh`: it shows full-screen color patterns (`colorwall`), grabs webcam frames with a bundled `.app` (`camgrab` — shell `ffmpeg` on the camera is silently denied by TCC, so it's launched via `open` like the probe), and scores the LED hue per scenario (`analyze.py`; set `CROP` to the LED region after checking a `snapshot`). Webcam auto-exposure makes brightness meaningless — judge hue; a black screen shows as the room becoming visible. Output lands in `build/ambient-test/`.
 
