@@ -1,11 +1,11 @@
 # Lumina — menu-bar control for Klipsch ProMedia Lumina 2.1
 
 A lightweight macOS menu-bar app that controls **Klipsch ProMedia Lumina 2.1**
-speakers over Bluetooth LE — volume, EQ, sound modes, subwoofer gain, and the
-full RGB lighting system — from a small popover in your menu bar.
+speakers over Bluetooth LE — input source, volume, EQ, sound modes, subwoofer
+gain, and the full RGB lighting system — from a small popover in your menu bar.
 
 <p align="center">
-  <img src="docs/screenshot-audio.png" width="320" alt="Audio tab — volume, sound modes, night mode, sub gain, and 6-band equalizer">
+  <img src="docs/screenshot-audio.png" width="320" alt="Audio tab — input source, volume, sound modes, night mode, sub gain, and 6-band equalizer">
   &nbsp;&nbsp;
   <img src="docs/screenshot-lighting.png" width="320" alt="Lighting tab — light modes including Ambient, brightness, color wheel, and color swatches">
 </p>
@@ -119,6 +119,10 @@ inside the popover.
 Ambient turns the speakers into a bias light for your screen: the light ring
 takes on the colors of whatever you're watching or working on, so the glow on
 the wall looks like the picture continuing past the edges of your display.
+
+<p align="center">
+  <img src="docs/ambient-demo.gif" width="480" alt="Ambient mode: the light on the wall behind the monitor shifts between green, red, and blue to match the video on screen">
+</p>
 
 **Turning it on:** open the **Lighting** tab and click **Ambient** (the display
 icon at the end of the mode row). The first time, grant Screen Recording access

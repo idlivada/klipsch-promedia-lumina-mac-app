@@ -3,3 +3,4 @@ build/
 .DS_Store
 probe-dumps/last-run.txt
 __pycache__/
+docs/*.mp4
