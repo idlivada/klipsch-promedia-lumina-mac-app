@@ -44,6 +44,8 @@ final class AppState {
     var volume: Double = 50  // percent
     var muted = false
     var soundMode: SoundMode = .music
+    /// nil until the speaker reports one, so the picker shows no false selection.
+    var inputSource: InputSource?
     var nightMode = false
     var subGain: Double = 0  // dB
     var eqBands: [Double] = Array(repeating: 0, count: eqBandLabels.count)
@@ -274,6 +276,11 @@ final class AppState {
         write(Lumina.soundMode, Data([m.rawValue]))
     }
 
+    func setInputSource(_ s: InputSource) {
+        inputSource = s
+        write(Lumina.input, Data([s.rawValue]))
+    }
+
     func setEQBand(_ index: Int, _ db: Double) {
         eqBands[index] = db
         pushEQ()
@@ -380,6 +387,8 @@ final class AppState {
             subGain = Double(Encodings.subGainDB(raw: first))
         case Lumina.soundMode:
             if let m = SoundMode(rawValue: first) { soundMode = m }
+        case Lumina.input:
+            if let s = InputSource(rawValue: first) { inputSource = s }
         case Lumina.eqBlob:
             eqTemplate = data
             if let gains = Encodings.eqBlobGains(data) {

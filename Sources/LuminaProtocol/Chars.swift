@@ -27,7 +27,7 @@ public enum Lumina {
     public static let eqBandCount = uuid("f16")   // read-only, reads 6
     public static let eqBlob = uuid("f17")        // 48 bytes: 6 records [band, 0, freqLE16, 0, 1, 0, gain(i8 dB)]
     public static let soundMode = uuid("f24")     // 1 byte: 01 Movie, 02 Music, 03 Virtual Surround (00 rejected)
-    public static let input = uuid("fd2")         // 0..6
+    public static let input = uuid("fd2")         // 1 byte: 00 Bluetooth, 01 Analog, 02 PC, 03 USB (00 IS valid here)
 
     // Present but vestigial/unused on Lumina (f02/f03/f04 legacy bass/mid/treble
     // all read 0x06; the 6-band EQ is f17). f27/f2c are unidentified.

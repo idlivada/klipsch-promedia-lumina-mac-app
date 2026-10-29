@@ -49,6 +49,27 @@ enum SoundMode: UInt8, CaseIterable {
     }
 }
 
+/// fd2 — verified 2026-10-29 by status-light color and test tone: 00 is
+/// Bluetooth (unlike ff2/f24, 00 is valid here), 01 Analog, 02 PC, 03 USB.
+enum InputSource: UInt8, CaseIterable {
+    case bluetooth = 0
+    case analog = 1
+    case pc = 2
+    case usb = 3
+
+    var label: String {
+        switch self {
+        case .bluetooth: "Bluetooth"
+        case .analog: "Analog"
+        case .usb: "USB"
+        case .pc: "PC"
+        }
+    }
+
+    /// Display order (the phone app's), independent of the byte values.
+    static let ordered: [InputSource] = [.bluetooth, .analog, .usb, .pc]
+}
+
 /// Aurora tone = a gradient pair in ff3, same mechanism as Music React.
 /// Byte values captured from the phone app 2026-07-17.
 enum AuroraTone: String, CaseIterable {
@@ -97,6 +118,7 @@ struct ProtocolCapabilities {
     var subGain = true        // fa4, 1 byte, dB = raw - 20
     var soundModes = true     // f24: Movie 01 / Music 02 / Surround 03
     var sixBandEQ = true      // f17 blob, gains signed dB -6..+6
+    var inputSource = true    // fd2: Bluetooth 00 / Analog 01 / PC 02 / USB 03
     // Strong candidates — fa2/fa3/f05 present with plausible values; the app
     // itself is the final write-and-observe test
     var volume = true

@@ -1,0 +1,23 @@
+# fd2 input select — announced write sweep, 2026-10-29
+# Lumina quit; 1.5 kHz test tone on the MacBook headphone jack (3.5 mm into the
+# speaker's analog input); PC = USB-C from the Mac. Each byte was written with
+# `./scripts/probe.sh write lumina fd2 <b>` and announced aloud on the MacBook
+# speakers; the observations are the user's (front status light + audio).
+
+Sweep 1 (13:38)
+fd2=03 ack=OK   orange light, no tone            -> USB (nothing feeds USB)
+fd2=00 ack=OK   blue light                       -> Bluetooth
+fd2=05 ack=OK   no clear change noted
+fd2=06 ack=OK   no clear change noted
+fd2=02 ack=OK   white light, PC audio            -> PC
+
+Sweep 2 (13:40)
+fd2=01 ack=OK   green light, tone heard          -> Analog
+fd2=04 ack=OK   green light, tone heard          (no change: stayed on Analog)
+fd2=00 ack=OK   blue light, held for 15 s        -> Bluetooth confirmed
+fd2=02 ack=OK   back to PC
+
+Earlier in-app test with the off-by-one guess (01 BT / 03 Analog): 01 gave
+green, 03 gave orange with no audio, which matches the map above.
+
+Result: 00 Bluetooth, 01 Analog, 02 PC, 03 USB. 00 is valid on fd2.

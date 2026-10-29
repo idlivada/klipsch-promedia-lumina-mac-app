@@ -7,6 +7,17 @@ struct AudioTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if state.caps.inputSource {
+                Picker("Input", selection: Binding<InputSource?>(
+                    get: { state.inputSource },
+                    set: { if let s = $0 { state.setInputSource(s) } }
+                )) {
+                    ForEach(InputSource.ordered, id: \.self) { Text($0.label).tag(Optional($0)) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
             if state.caps.volume {
                 volumeRow
             }

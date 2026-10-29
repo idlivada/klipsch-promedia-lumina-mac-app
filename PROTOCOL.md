@@ -22,6 +22,7 @@ and heard/saw the result. **W is required before a row counts as verified.**
 | `fa4` | Sub gain | 1 byte, dB = raw − 20, range −20..+10 (raw 0..30). NOT the Fives' 2-byte format. Cross-checked: phone app +2 dB ↔ raw 22. | D+W |
 | `f17` | 6-band EQ | 48-byte blob (six 8-byte records, gain = last byte, signed dB −6..+6; layout below). Wrote +6 @ 50 Hz → audibly boomier; user's phone-app settings (−2 @ 3.5k/8k) matched the baseline decode. Full-blob writes only (a 32-byte partial write was silently ignored). | D+W |
 | `f24` | Sound mode | 1 byte: **01 Movie, 02 Music, 03 Virtual Surround** (00 rejected, like ff2). Music=02 cross-checked against phone app; 03 confirmed surround-like by ear; Movie=01 by elimination. | D+W |
+| `fd2` | Input select | 1 byte: **00 Bluetooth, 01 Analog, 02 PC** (USB-C from a computer), **03 USB**. Unlike `ff2`/`f24`, `00` is valid here. Front status light: Bluetooth blue, Analog green, PC white, USB orange. `04` acked with no visible change (stayed on the previous input); `05`/`06` acked, effect unclear — not exposed. Bluetooth audio pairing only works while the speaker is on its Bluetooth input. Verified 2026-10-29: PC by audio, Analog by a test tone on the 3.5 mm jack, Bluetooth and USB by status-light color (no source was feeding them). | W |
 
 ## Ambient streaming on `ff3` — W, webcam-verified 2026-09-22
 
@@ -81,7 +82,6 @@ full 48-byte blob must be rewritten.
 | `f27` | `00` | Unknown (dynamic bass? surround sub-toggle?) | observe during D sessions |
 | `f2c` | `01` | Unknown | observe during D sessions |
 | `f02/f03/f04` | `06 06 06` | Legacy bass/mid/treble; all-equal reads suggest flat (byte = dB+6?) — possibly vestigial on Lumina | low priority; 6-band EQ is `f17` |
-| `fd2` | `02` | Input select (02 = Bluetooth on Fives… but likely USB here) | D (nice-to-have) |
 | `fe9` | `8403` | LE 0x0384 = 900 s — auto-standby timer? | ignore |
 
 ## Remaining unknowns (all requested features are now decoded)
@@ -118,6 +118,10 @@ ears/eyes.
   `diff <(grep '^VALUE' probe-dumps/A.txt | sort) <(grep '^VALUE' probe-dumps/B.txt | sort)`
 - **W (write-and-observe)** — `./scripts/probe.sh write lumina <char> <hex>`,
   then listen/look.
+- **W by microphone** — `./scripts/input-test.sh discover|watch` plays a distinct
+  sine tone into each input fed from the Mac (`TONES`) and records the BRIO mic
+  through a bundled `.app` (the shell is TCC-denied the mic). The live input is the
+  tone that rises above the room level; no one has to listen.
 
 **Session order** (lighting first — needs no phone):
 1. **Session 0 — inventory**: `dump lumina` (save as `probe-dumps/00-baseline.txt`),

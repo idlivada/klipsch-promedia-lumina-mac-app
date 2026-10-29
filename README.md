@@ -21,6 +21,7 @@ there, in a native app that feels at home on your Mac.
 Once connected, Lumina gives you a two-tab popover:
 
 **Audio**
+- **Input source** — Bluetooth, Analog, USB, PC
 - **Volume** with a mute button
 - **Sound modes** — Movie, Music, Virtual Surround
 - **Night mode** on/off
