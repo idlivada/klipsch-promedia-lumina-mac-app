@@ -42,7 +42,8 @@ full-screen test patterns, `scratchpad` harness):
   (`ff8000` ≠ yellow) distinguishably.
 
 The screen → color algorithm and its tunables live in
-`Sources/LuminaBar/Ambient/AmbientColor.swift`.
+`Sources/LuminaBar/Ambient/AmbientColor.swift`. Audio mode uses the identical stream, driven by system
+audio instead (`Sources/LuminaBar/Ambient/AudioReactive.swift`); no protocol changes.
 
 ## Session 0 inventory — 2026-07-17 (`probe-dumps/00-baseline.txt`)
 

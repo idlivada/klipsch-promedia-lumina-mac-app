@@ -30,13 +30,18 @@ Once connected, Lumina gives you a two-tab popover:
 
 **Lighting**
 - **Lights** on/off (remembers your last mode)
-- **Modes** — Rainbow, Breathe, Static, Aurora, Music React, and **Ambient**
-- **Brightness** (Static, Breathe, and Ambient)
+- **Modes** — Rainbow, Breathe, Static, Aurora, Music React, **Ambient**, and **Audio**
+- **Brightness** (Static, Breathe, Ambient, and Audio)
 - **Static / Breathe** — color swatches plus a full color picker
 - **Aurora** — Cool or Warm tone
 - **Music React** — four gradient presets (Blue→Purple, Cyan→Blue, Red→Purple, Yellow→Orange)
 - **Ambient** — the lights follow the colors on your screen, Ambilight-style
   (see [Ambient mode](#ambient-mode) below)
+- **Audio** — the lights pulse with whatever your Mac is playing
+  (see [Audio mode](#audio-mode) below)
+
+**Settings** (gear menu)
+- **Launch at Login**
 
 Changes you make on the speaker's control pod (like the brightness button) are
 reflected back in the app automatically.
@@ -112,7 +117,10 @@ inside the popover.
 
 - Click the **speaker icon** in the menu bar to open the popover.
 - Switch between the **Audio** and **Lighting** tabs.
-- The **gear menu** (top-right) has **Release to Phone App / Reconnect** and **Quit**.
+- The **gear menu** (top-right) has **Release to Phone App / Reconnect**,
+  **Launch at Login**, and **Quit**. Move `Lumina.app` to its permanent home
+  (e.g. Applications) before turning on Launch at Login — the login item
+  remembers where the app was.
 
 ### Ambient mode
 
@@ -164,9 +172,39 @@ being sent and a status line — **Following your screen** means it's working.
   anywhere except the resulting color to your speakers. Lumina's own popover is
   excluded from the sample.
 
+### Audio mode
+
+Audio turns the light ring into a visualizer for your Mac's sound: it pulses
+with the loudness, kicks on the beat, and fades out about a second after the
+music stops.
+
+**Turning it on:** open the **Lighting** tab and click **Audio** (the waveform
+icon at the end of the mode row). It uses the same **Screen & System Audio
+Recording** permission as Ambient, so if Ambient already works, so does Audio.
+
+**Colors:** pick a palette in the Audio panel.
+- The four **gradients** (the Music React color pairs) slide from the first
+  color on quiet passages to the second on loud peaks.
+- **Spectrum** colors the lights by pitch: bass-heavy sound glows red, bright
+  and treble-heavy sound shifts toward blue and violet.
+- **Your color** (the last swatch) keeps the lights on one color you pick with
+  the color wheel or swatches; only the brightness pulses with the sound.
+
+**Good to know**
+- Audio follows sound **played by this Mac** — best with the speakers on the
+  **PC** (USB-C) or **Analog** input fed from the Mac. On the Bluetooth input
+  from your phone, the lights still follow the Mac, not the phone.
+- Levels are auto-adjusted, so a quiet track pulses as much as a loud one. The
+  **Brightness** slider scales it on top.
+- Like Ambient, Audio pauses while the lights are off, released, or
+  disconnected, stays on across restarts, and ends when you pick another mode.
+  Switching to Static or Breathe keeps the color showing at that moment.
+- **Privacy:** the audio is analyzed live in memory to compute a color —
+  nothing is recorded, saved, or sent anywhere.
+
 ### Notes
 
-- **Brightness** is adjustable in **Static**, **Breathe**, and **Ambient** modes.
+- **Brightness** is adjustable in **Static**, **Breathe**, **Ambient**, and **Audio** modes.
   Rainbow, Aurora, and Music React render their own colors on the speaker and
   can't be dimmed from a computer.
 - If the app is stuck **Searching…**, close the Klipsch app on your phone — the
@@ -185,6 +223,8 @@ being sent and a status line — **Following your screen** means it's working.
 | Ambient says "Capture stopped" | The screen was locked, a display was unplugged, or macOS interrupted capture. Click **Retry**. |
 | Ambient is on but the lights don't change | Check that **Lights** is on and the status dot is green — Ambient pauses while the lights are off or the speakers are disconnected. |
 | Ambient follows the wrong monitor | Pick the right screen in the Ambient panel's **Display** menu. |
+| Audio says "Waiting for audio" while music plays | The music is coming from another device (e.g. your phone over Bluetooth). Audio follows sound played by this Mac. |
+| Launch at Login doesn't stick | Approve Lumina in **System Settings → General → Login Items**, and keep the app in the place you registered it from. |
 
 ## How it works
 
@@ -193,5 +233,6 @@ reverse-engineered by observing the official app and testing against the
 hardware. The full characteristic map and findings are documented in
 [PROTOCOL.md](PROTOCOL.md). Ambient mode needs nothing special from the
 speaker: it puts the lights in Static mode and streams a new solid color over
-Bluetooth whenever the screen changes. This project is an independent, unofficial tool and
+Bluetooth whenever the screen changes. Audio mode works the same way, with the
+color computed from the Mac's sound instead of its screen. This project is an independent, unofficial tool and
 is not affiliated with or endorsed by Klipsch.

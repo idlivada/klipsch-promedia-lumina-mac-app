@@ -2,8 +2,25 @@ import SwiftUI
 import LuminaProtocol
 
 /// Color wheel + swatch grid for Static and Breathe.
+/// Static/Breathe color: the shared picker bound to `staticColor`.
 struct ColorControls: View {
     @Environment(AppState.self) private var state
+
+    var body: some View {
+        ColorPickerPanel(
+            rgb: state.staticColor,
+            onPick: { state.setStaticColor($0) },
+            onEditingChanged: { state.setEditing(Lumina.staticColor, $0) }
+        )
+    }
+}
+
+/// Color wheel + preset swatches for any solid color (Static/Breathe, the
+/// Audio mode's custom color).
+struct ColorPickerPanel: View {
+    let rgb: RGB
+    let onPick: (RGB) -> Void
+    var onEditingChanged: (Bool) -> Void = { _ in }
 
     private static let swatches: [RGB] = [
         RGB(r: 255, g: 0, b: 0),     // red
@@ -21,9 +38,9 @@ struct ColorControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ColorWheelView(
-                rgb: state.staticColor,
-                onChange: { state.setStaticColor($0) },
-                onEditingChanged: { state.setEditing(Lumina.staticColor, $0) }
+                rgb: rgb,
+                onChange: onPick,
+                onEditingChanged: onEditingChanged
             )
             .frame(maxWidth: .infinity)
 
@@ -31,7 +48,7 @@ struct ColorControls: View {
                 ForEach(Self.swatches.indices, id: \.self) { i in
                     let swatch = Self.swatches[i]
                     Button {
-                        state.setStaticColor(swatch)
+                        onPick(swatch)
                     } label: {
                         RoundedRectangle(cornerRadius: 6)
                             .fill(Color(rgb: swatch))
@@ -39,8 +56,8 @@ struct ColorControls: View {
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
                                     .strokeBorder(
-                                        state.staticColor == swatch ? Color.primary : Color.black.opacity(0.15),
-                                        lineWidth: state.staticColor == swatch ? 2 : 1
+                                        rgb == swatch ? Color.primary : Color.black.opacity(0.15),
+                                        lineWidth: rgb == swatch ? 2 : 1
                                     )
                             )
                     }

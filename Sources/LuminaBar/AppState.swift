@@ -1,6 +1,7 @@
 import SwiftUI
 import Observation
 import CoreBluetooth
+import ServiceManagement
 import LuminaProtocol
 
 enum ConnectionState {
@@ -28,9 +29,13 @@ final class AppState {
     var auroraTone: AuroraTone = .cool
     var musicPresetID = 0
 
-    // MARK: Ambient (app-side: device in Static, ff3 streamed from the screen)
+    // MARK: App-side streams (device in Static, ff3 streamed from screen or audio)
 
-    var ambientActive = false
+    /// At most one stream drives the LEDs; nil = the device's own modes.
+    var stream: LightStream?
+    var ambientActive: Bool { stream == .screen }
+    var audioActive: Bool { stream == .audio }
+
     /// Latest sampled screen color (before the brightness slider is applied).
     /// Separate from `staticColor` so ambient never overwrites the user's pick.
     var ambientColor = RGB(r: 255, g: 255, b: 255)
@@ -38,6 +43,17 @@ final class AppState {
     /// nil = main display.
     var ambientDisplayID: CGDirectDisplayID?
     var displays: [DisplayInfo] = []
+
+    /// Latest audio-reactive color, same role as `ambientColor`.
+    var audioColor = AmbientTracker.off
+    var audioStatus: AmbientStatus = .stopped
+    var audioPalette: AudioPalette = .bluePurple
+    /// The `.custom` palette's color — its own pick, separate from `staticColor`.
+    var audioCustomColor = RGB(r: 255, g: 40, b: 0)
+
+    // MARK: App settings
+
+    var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     // MARK: Audio state
 
@@ -55,6 +71,7 @@ final class AppState {
     @ObservationIgnored private var lastActiveMode: LightMode = .rainbow
     @ObservationIgnored private var client = LuminaClient()
     @ObservationIgnored private var sampler = ScreenSampler()
+    @ObservationIgnored private var audioSampler = AudioSampler()
     @ObservationIgnored private var throttler: Throttler!
     @ObservationIgnored private var recentWrites: [CBUUID: Date] = [:]
     @ObservationIgnored private var editingChars: Set<CBUUID> = []
@@ -73,11 +90,34 @@ final class AppState {
             Task { @MainActor in self?.handle(event) }
         }
         sampler.onColor = { [weak self] c in
-            MainActor.assumeIsolated { self?.ambientSample(c) }
+            MainActor.assumeIsolated { self?.streamSample(c, from: .screen) }
         }
         sampler.onStatus = { [weak self] s in
             MainActor.assumeIsolated { self?.ambientStatus = s }
         }
+        audioSampler.palette = audioPalette
+        audioSampler.customColor = audioCustomColor
+        audioSampler.onColor = { [weak self] c in
+            MainActor.assumeIsolated { self?.streamSample(c, from: .audio) }
+        }
+        audioSampler.onStatus = { [weak self] s in
+            MainActor.assumeIsolated { self?.audioStatus = s }
+        }
+    }
+
+    // MARK: App settings
+
+    func setLaunchAtLogin(_ on: Bool) {
+        let service = SMAppService.mainApp
+        do {
+            if on { try service.register() } else { try service.unregister() }
+        } catch {
+            // Fall through: the status below is the truth either way.
+        }
+        if on && service.status == .requiresApproval {
+            SMAppService.openSystemSettingsLoginItems()
+        }
+        launchAtLogin = service.status == .enabled
     }
 
     // MARK: Connection actions
@@ -104,13 +144,13 @@ final class AppState {
     }
 
     func setMode(_ m: LightMode) {
-        // Leaving ambient for a solid-color mode keeps the color on screen at
+        // Leaving a stream for a solid-color mode keeps the color showing at
         // that moment (exact swatch value, so the LEDs don't jump) — unless
-        // ambient was showing "off" for a black screen.
-        if ambientActive && (m == .staticColor || m == .breathe) && ambientColor != AmbientTracker.off {
-            staticColor = ambientColor
+        // the stream was showing "off" (black screen, silence).
+        if stream != nil && (m == .staticColor || m == .breathe) && displayedSolidColor != AmbientTracker.off {
+            staticColor = displayedSolidColor
         }
-        stopAmbient()
+        stopStream()
         mode = m
         lastActiveMode = m
         lightsOn = true
@@ -158,9 +198,15 @@ final class AppState {
         pushStaticColor(throttled: true)
     }
 
-    /// The solid color Static/Breathe should show: the screen sample while
-    /// ambient is on, otherwise the user's pick.
-    private var displayedSolidColor: RGB { ambientActive ? ambientColor : staticColor }
+    /// The solid color Static/Breathe should show: the streamed color while a
+    /// stream is on, otherwise the user's pick.
+    private var displayedSolidColor: RGB {
+        switch stream {
+        case .screen: ambientColor
+        case .audio: audioColor
+        case nil: staticColor
+        }
+    }
 
     private func pushStaticColor(throttled: Bool = false) {
         // Scale the true color by brightness (fea can't be driven externally).
@@ -171,11 +217,30 @@ final class AppState {
         )
     }
 
-    // MARK: Ambient actions
+    // MARK: Stream actions (Ambient / Audio)
 
     func setAmbient(_ on: Bool) {
-        guard on else { return stopAmbient() }
-        ambientActive = true
+        on ? startStream(.screen) : stopStream()
+    }
+
+    func setAudioReactive(_ on: Bool) {
+        on ? startStream(.audio) : stopStream()
+    }
+
+    func setAudioPalette(_ p: AudioPalette) {
+        audioPalette = p
+        audioSampler.palette = p
+        persist()
+    }
+
+    func setAudioCustomColor(_ c: RGB) {
+        audioCustomColor = c
+        audioSampler.customColor = c
+        if audioPalette != .custom { setAudioPalette(.custom) } else { persist() }
+    }
+
+    private func startStream(_ s: LightStream) {
+        stream = s
         mode = .staticColor
         lastActiveMode = .staticColor
         lightsOn = true
@@ -202,34 +267,49 @@ final class AppState {
         displays = ScreenSampler.displays()
     }
 
-    private func stopAmbient() {
-        guard ambientActive else { return }
-        ambientActive = false
+    private func stopStream() {
+        guard stream != nil else { return }
+        stream = nil
         persist()
         syncSampler()
     }
 
     /// Capture only while it can reach the LEDs; paused (not cancelled) while
-    /// lights are off, released to the phone, or disconnected.
+    /// lights are off, released to the phone, or disconnected. At most one
+    /// sampler runs — the one matching `stream`.
     private func syncSampler() {
-        if ambientActive && lightsOn && connection == .connected {
+        let live = lightsOn && connection == .connected
+        if live && stream == .screen {
             let id = ambientDisplayID.flatMap { id in displays.contains { $0.id == id } ? id : nil }
             sampler.start(displayID: id)
         } else if ambientStatus != .stopped {
             sampler.stop()
         }
+        if live && stream == .audio {
+            audioSampler.start()
+        } else if audioStatus != .stopped {
+            audioSampler.stop()
+        }
     }
 
-    private func ambientSample(_ c: RGB) {
-        guard ambientActive, lightsOn else { return }
-        ambientColor = c
+    func retryAudio() {
+        audioSampler.stop()
+        syncSampler()
+    }
+
+    private func streamSample(_ c: RGB, from s: LightStream) {
+        guard stream == s, lightsOn else { return }
+        switch s {
+        case .screen: ambientColor = c
+        case .audio: audioColor = c
+        }
         // Unthrottled: LuminaClient keeps one write in flight and replaces a
         // queued ff3 write, so the stream self-limits to the BLE round trip.
         pushStaticColor()
     }
 
     func setAuroraTone(_ t: AuroraTone) {
-        stopAmbient()
+        stopStream()
         auroraTone = t
         mode = .aurora
         lastActiveMode = .aurora
@@ -239,7 +319,7 @@ final class AppState {
     }
 
     func setMusicPreset(_ id: Int) {
-        stopAmbient()
+        stopStream()
         musicPresetID = id
         guard let p = MusicPreset.all.first(where: { $0.id == id }) else { return }
         mode = .music
@@ -350,7 +430,7 @@ final class AppState {
                 lightsOn = false
             } else if let m = LightMode(rawValue: first) {
                 // Pod or phone switched away from Static: they own the lights now.
-                if m != .staticColor { stopAmbient() }
+                if m != .staticColor { stopStream() }
                 lightsOn = true
                 mode = m
                 lastActiveMode = m
@@ -419,8 +499,22 @@ final class AppState {
         if let id = d.object(forKey: "lumina.ambientDisplay") as? Int {
             ambientDisplayID = CGDirectDisplayID(id)
         }
-        // Resumes on connect (syncSampler waits for .connected).
-        ambientActive = d.bool(forKey: "lumina.ambient") && lastActiveMode == .staticColor
+        // Resumes on connect (syncSampler waits for .connected). Pre-1.3
+        // builds stored ambient as a bool.
+        if let raw = d.string(forKey: "lumina.stream") {
+            stream = LightStream(rawValue: raw)
+        } else if d.bool(forKey: "lumina.ambient") {
+            stream = .screen
+        }
+        if lastActiveMode != .staticColor { stream = nil }
+        if let raw = d.object(forKey: "lumina.audioPalette") as? Int,
+           let p = AudioPalette(rawValue: raw) {
+            audioPalette = p
+        }
+        if let c = d.data(forKey: "lumina.audioCustomColor"),
+           let rgb = try? JSONDecoder().decode(RGB.self, from: c) {
+            audioCustomColor = rgb
+        }
     }
 
     private func persist() {
@@ -430,7 +524,12 @@ final class AppState {
         if let c = try? JSONEncoder().encode(staticColor) {
             d.set(c, forKey: "lumina.staticColor")
         }
-        d.set(ambientActive, forKey: "lumina.ambient")
+        d.set(stream?.rawValue ?? "", forKey: "lumina.stream")
+        d.removeObject(forKey: "lumina.ambient")
+        d.set(audioPalette.rawValue, forKey: "lumina.audioPalette")
+        if let c = try? JSONEncoder().encode(audioCustomColor) {
+            d.set(c, forKey: "lumina.audioCustomColor")
+        }
         if let id = ambientDisplayID {
             d.set(Int(id), forKey: "lumina.ambientDisplay")
         } else {

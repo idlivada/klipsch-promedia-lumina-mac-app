@@ -50,6 +50,11 @@ struct PopoverView: View {
                     Button("Release to Phone App") { state.releaseToPhone() }
                 }
                 Divider()
+                Toggle("Launch at Login", isOn: Binding(
+                    get: { state.launchAtLogin },
+                    set: { state.setLaunchAtLogin($0) }
+                ))
+                Divider()
                 Button("Quit Lumina") { NSApp.terminate(nil) }
             } label: {
                 Image(systemName: "gearshape")

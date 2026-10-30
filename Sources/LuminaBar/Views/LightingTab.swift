@@ -26,15 +26,20 @@ struct LightingTab: View {
     }
 
     private var modeRow: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             ForEach(LightMode.allCases, id: \.self) { m in
-                modeTile(m.label, m.symbol, selected: state.mode == m && !state.ambientActive) {
+                modeTile(m.label, m.symbol, selected: state.mode == m && state.stream == nil) {
                     state.setMode(m)
                 }
             }
             if state.caps.ambient {
                 modeTile("Ambient", "display", selected: state.ambientActive) {
                     state.setAmbient(true)
+                }
+            }
+            if state.caps.audioReactive {
+                modeTile("Audio", "waveform", selected: state.audioActive) {
+                    state.setAudioReactive(true)
                 }
             }
         }
@@ -90,6 +95,8 @@ struct LightingTab: View {
         switch state.mode {
         case .staticColor where state.ambientActive:
             AmbientControls()
+        case .staticColor where state.audioActive:
+            AudioReactiveControls()
         case .staticColor:
             ColorControls()
         case .breathe:
@@ -123,27 +130,36 @@ struct MusicPresetGrid: View {
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
             ForEach(MusicPreset.all) { preset in
-                Button {
+                GradientCapsuleButton(
+                    colors: [Color(rgb: preset.start), Color(rgb: preset.end)],
+                    selected: state.musicPresetID == preset.id,
+                    help: preset.name
+                ) {
                     state.setMusicPreset(preset.id)
-                } label: {
-                    Capsule()
-                        .fill(LinearGradient(
-                            colors: [Color(rgb: preset.start), Color(rgb: preset.end)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ))
-                        .frame(height: 24)
-                        .overlay(
-                            Capsule().strokeBorder(
-                                state.musicPresetID == preset.id ? Color.primary : .clear,
-                                lineWidth: 2
-                            )
-                        )
                 }
-                .buttonStyle(.plain)
-                .help(preset.name)
             }
         }
+    }
+}
+
+/// A gradient swatch button with a selection ring (Music presets, Audio palettes).
+struct GradientCapsuleButton: View {
+    let colors: [Color]
+    let selected: Bool
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Capsule()
+                .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
+                .frame(height: 24)
+                .overlay(
+                    Capsule().strokeBorder(selected ? Color.primary : .clear, lineWidth: 2)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 }
 

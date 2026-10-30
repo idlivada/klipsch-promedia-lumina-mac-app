@@ -108,6 +108,36 @@ struct MusicPreset: Identifiable {
     ]
 }
 
+/// App-side light streams: the device sits in Static and the app streams solid
+/// ff3 colors. Mutually exclusive — `AppState.stream` holds at most one.
+enum LightStream: String {
+    case screen  // Ambient: follows the screen
+    case audio   // Audio: follows this Mac's sound output
+}
+
+/// Audio mode colors: a gradient that the level moves along (quiet = start,
+/// loud = end), hue by pitch, or one user-picked color that only pulses.
+/// The gradients reuse the Music React pairs.
+enum AudioPalette: Int, CaseIterable {
+    case bluePurple = 0
+    case cyanBlue = 1
+    case redPurple = 2
+    case yellowOrange = 3
+    case spectrum = 4
+    case custom = 5
+
+    /// nil for `.spectrum` and `.custom`.
+    var preset: MusicPreset? { MusicPreset.all.first { $0.id == rawValue } }
+
+    var name: String {
+        switch self {
+        case .spectrum: "Spectrum (color follows pitch)"
+        case .custom: "Your color"
+        default: preset?.name ?? ""
+        }
+    }
+}
+
 /// Which controls render. Flip flags to true as Phase 1 verifies each mapping
 /// (see PROTOCOL.md); unverified features stay hidden rather than silently broken.
 struct ProtocolCapabilities {
@@ -128,6 +158,7 @@ struct ProtocolCapabilities {
     var musicPresets = true   // ff3 gradient pair while in mode 05
     // App-side: Static mode + ff3 streamed from a ScreenCaptureKit sample
     var ambient = true
+    var audioReactive = true  // same stream, driven by system audio
 }
 
 let eqBandLabels = ["50", "150", "400", "1k", "3.5k", "8k"]
