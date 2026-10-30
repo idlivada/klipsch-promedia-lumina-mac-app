@@ -66,7 +66,7 @@ is connected your phone app can't be, and vice-versa. Lumina includes a
 
 ### Option 1 — download the release (easiest)
 
-1. Download `Lumina-v1.2.0.zip` from the
+1. Download `Lumina-v1.3.0.zip` from the
    [latest release](https://github.com/idlivada/klipsch-promedia-lumina-mac-app/releases/latest)
    and unzip it.
 2. Move `Lumina.app` wherever you like (e.g. your Applications folder).
